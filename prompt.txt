@@ -1,0 +1,96 @@
+I want to create a Home Assistant automation to charge my EV
+only with the surplus energy produced by my photovoltaic system (Triphasic).
+There should be a pv_ev_surplus_automation ON/OFF switch (default OFF) that will enable automation.
+The goal is that upon switching ON pv_ev_surplus_automation and every ev_update_interval (configurable in seconds (default 60s)), if necessary and according to all the rules, the automation can update the Charging Current and/or the Charger Phase Mode (Monophasic/Triphasic) and/or start/stop charging according to the Available Power for EV and the calculated Target Current and Target Phase. 
+There should be a pv_ev_surplus_automation ON/OFF switch (default OFF) that will enable automation to start (or stop) charging as well as make Target Current and Target Phase updates.
+I just need you to create a pv_ev_surplus.yaml so I can copy and paste it on my Home Assistant instance.
+
+Considerations:
+- The House Load is the main priority.
+- Real House Load (W) = House Load - EV Charger Load
+- Surplus (W) (>= 0) = PV - Real House Load
+- Available Power for EV (W) = A configurable ev_share_percentage (Default is ev_share_percentage_default (default 50%)) of Surplus
+- There should be a configurable ev_share_percentage_max (default 80%)
+- Available Current for EV (A) = Available Power for EV / 230
+- Reserved Power (W) (>= 0) = Surplus - Available Power for EV
+- There should be a configurable margin percentage (Default is 20%) of the Reserved Power that can be used by the EV Charger to avoid unnecessary EV Power drops (changes/oscilations). This margin can be used during a configurable amount of ev_reserved_margin_allowance (configurable number (default 5) of ev_update_interval cycles) before triggering an EV Power decrease.
+
+Considerations about the Available Current for EV:
+- Values can be 1-48A
+- My EV Charger has two mode: Monophasic (1-16A) and Triphasic (3 * 1-16A)
+- Target Current and Target Phase mode must be calculated acording to the Available Power for EV upon hitting ev_update_interval and upon switching pv_ev_surplus_automation to ON.
+
+Some Required variables:
+- Phase Mode Update Delay (seconds) (default 5): phase_mode_update_delay
+
+Considerations regarging the charging updates:
+- When only the Target Current needs to be updated and the Target Phase remains the same, the automation will just trigger a Current update.
+- When only the Target Phase needs to be updated, the automation has to: ev_charge = OFF -> wait phase_mode_update_delay -> update phase mode -> wait phase_mode_update_delay -> ev_charge = ON
+- When both the Target Current and the Target Phase need updates, the automation has to: ev_charge = OFF -> wait phase_mode_update_delay -> update phase mode -> update the current -> wait phase_mode_update_delay -> ev_charge = ON
+- Switch ON ev_charge, and Target Current and/or Target Phase changes can only happen if pv_ev_surplus_automation is ON and House Battery State of Charge (%) >= min_house_battery_soc (default 20%)
+
+I want to be able to configure a few variables that will affect the Target Current and Target Phase calculations:
+
+- There's should be a tesla_charge_current_api switch (default ON), that will determine how the Target Current gets updated:
+    - If ON:
+        - Use number.tesla_model_y_charge_current (1-16A)
+        - min_charging_a = tesla_min_charging_a (1-16A) (Default 1A)
+    - If OFF:
+        - Use number.ev_charger_set_charge_current (8-16A)
+        - min_charging_a = ev_charger_min_charging_a (8-16A) (Default 8A)
+
+- There's should be a tesla_charge_on_off_api switch (default OFF), that will determine how the ev starts and stops charging:
+    - If ON:
+        - Use switch.tesla_model_y_charge
+    - If OFF:
+        - Use select.ev_charger_charging ("on" for ON and "off" for OFF)
+
+- max_monophasic_a (A)8 (default 14A) -> Available Current for EV > max_mono_a will always force Triphasic
+- min_triphasic_a (A) (value options 3,6,9,12 and 15, default 9A) -> If Available Current for EV >= min_triphasic_a Triphasic Target Phase can be used.
+- min_charging_a (depends on tesla_charge_current_api) -> The minimum current (A) value that the charger can deliver (default depends on the tesla_charge_current_api switch)
+- Available Current for EV values that are multiple of 3 and >= min_triphasic_a, should target Triphasic Currents
+
+Target Current and Target Phase examples:
+
+Available Current for EV = 8A -> 8A Monophasic
+Available Current for EV = 9A -> 3A Triphasic
+Available Current for EV = 10A -> 10A Monophasic
+Available Current for EV = 12A -> 4A Triphasic
+Available Current for EV = 13A -> 13A Monophasic
+Available Current for EV = 18A -> 6A Triphasic
+Available Current for EV = 36A -> 12A Triphasic
+
+Other Considerations:
+
+- Upon switching pv_ev_surplus_automation to ON:
+    - If tesla_api switch is ON, number.ev_charger_set_charge_current must be its max (16A), so the Tesla Current (A) is not capped by the EV Charger.
+- Upon switching tesla_api:
+    - If switched to ON: number.tesla_model_y_charge_current must be tesla_min_charging_a and number.ev_charger_set_charge_current must be its max (16A)
+    - If switched to OFF: number.ev_charger_set_charge_current must be ev_charger_min_charging_a
+- if sensor.gw_battery = 100 (%), ev_share_percentage must be set to ev_share_percentage_max. If it falls below 100, it must be set to ev_share_percentage_default)
+
+Home Assistant Variables that you might need:
+
+- House Battery State of Charge (%): sensor.gw_battery
+- PV (W): sensor.gw_pv
+- House Load (W): sensor.gw_load
+- EV Charger Load (kW): sensor.ev_charger_power
+- EV is Connected: sensor.ev_charger_status = "plugged_in" or "charged"
+- EV is Charging = sensor.ev_charger_status = "charging"
+- Phase Mode ("Monophasic"/"Triphasic"): select.ev_charger_mode
+- Import from Grid Power (W): sensor.gw_from_grid
+
+These might be useful for debug:
+- House Battery Charge Rate (W): sensor.gw_battery_charge
+- House Battery Discharge Rate (W): sensor.gw_battery_discharge
+
+When pv_ev_surplus_automation = ON, upon hitting an ev_update_interval event, stop charging if:
+- House Battery State of Charge (%) < min_house_battery_soc and min_house_battery_soc_block switch is ON (default ON)
+- Grid Power (W) > 0 and grid_import_block switch is ON (default ON)
+
+Upon switching ON pv_ev_surplus_automation, and upon hitting an ev_update_interval event, If all the requirements and rules are met, it can start charging.
+Start charging should always happen after making the proper Target Current and (if necessary) Target Phase adjustments accordingly.
+Upon switching OFF pv_ev_surplus_automation, stop charging.
+
+Also, I want you to create a Home Assistant Dashboard (pv_ev_surplus_dashboard.yaml) to monitor and debug every variable.
+This dashboard should have all the values being refreshed at a configurable dashboard_values_update_interval in seconds (default 10s), and that must be done without affecting how the automation works in any possible way.

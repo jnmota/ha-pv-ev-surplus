@@ -1,0 +1,162 @@
+title: PV-EV Variables
+path: pv-ev-variables
+icon: mdi:solar-power-variant
+cards:
+  - type: entities
+    title: 🔘 Automation Master Switch
+    entities:
+      - input_boolean.pv_ev_surplus_automation
+  - type: entities
+    title: 🔘 Input Booleans (Switches)
+    entities:
+      - input_boolean.tesla_charge_current_api
+      - input_boolean.tesla_charge_on_off_api
+      - input_boolean.min_house_battery_soc_block
+      - input_boolean.grid_import_block
+  - type: entities
+    title: 🔢 Share Input Numbers (Configuration)
+    entities:
+      - input_select.ev_share_percentage
+      - input_number.ev_share_percentage_default
+      - input_number.ev_share_percentage_max
+      - input_number.margin_percentage
+      - input_number.ev_reserved_margin_allowance
+  - type: entities
+    title: 🔢 Intervals Input Numbers (Configuration)
+    entities:
+      - input_number.ev_update_interval
+      - input_number.dashboard_values_update_interval
+      - input_number.phase_mode_update_delay
+  - type: entities
+    title: 🔢 Broundries Input Numbers (Configuration)
+    entities:
+      - input_number.tesla_min_charging_a
+      - input_number.ev_charger_min_charging_a
+      - input_number.max_monophasic_a
+      - input_number.min_triphasic_a
+      - input_number.min_house_battery_soc
+  - type: entities
+    title: 🔢 Counters
+    entities:
+      - counter.ev_margin_allowance_counter
+  - type: entities
+    title: 🧮 Template Sensors (Calculated)
+    entities:
+      - sensor.pv_ev_real_house_load
+      - sensor.pv_ev_surplus
+      - sensor.pv_ev_current_share_percentage
+      - sensor.pv_ev_available_power
+      - sensor.pv_ev_available_current
+      - sensor.pv_ev_reserved_power
+      - sensor.pv_ev_margin_power
+      - sensor.pv_ev_min_charging_current
+      - sensor.pv_ev_target_phase
+      - sensor.pv_ev_target_current
+      - sensor.pv_ev_current_phase
+      - sensor.pv_ev_current_charging_current
+      - sensor.pv_ev_connection_status
+      - sensor.pv_ev_charging_status
+      - sensor.pv_ev_safety_check
+      - sensor.pv_ev_automation_status
+      - sensor.pv_ev_system_health
+      - sensor.pv_ev_efficiency_ratio
+      - sensor.pv_ev_daily_energy
+      - sensor.pv_ev_debug_why_not_charging
+  - type: entities
+    title: 🏠 External Sensors (System)
+    entities:
+      - sensor.gw_battery
+      - sensor.gw_pv
+      - sensor.gw_load
+      - sensor.gw_from_grid
+      - sensor.gw_to_grid
+      - sensor.gw_battery_charge
+      - sensor.gw_battery_discharge
+      - sensor.ev_charger_power
+      - sensor.ev_charger_status
+  - type: entities
+    title: 🔌 Device Controls
+    entities:
+      - number.tesla_model_y_charge_current
+      - switch.tesla_model_y_charge
+      - number.ev_charger_set_charge_current
+      - select.ev_charger_charging
+      - select.ev_charger_mode
+  - type: entities
+    title: ⚙️ Scripts
+    entities:
+      - script.control_charging
+      - script.update_charging_current
+      - script.emergency_stop_charging
+      - script.update_phase_mode
+  - type: entities
+    title: 🤖 Automations
+    entities:
+      - automation.pv_ev_surplus_update_logic
+      - automation.pv_ev_surplus_automation_off
+      - automation.pv_ev_tesla_current_api_change
+      - automation.pv_ev_automation_turn_on_setup
+      - automation.pv_ev_battery_soc_100
+      - automation.pv_ev_battery_soc_below_100
+      - automation.pv_ev_emergency_stop
+      - automation.pv_ev_sensor_validation
+      - automation.pv_ev_sensor_monitor
+      - automation.pv_ev_debug_test
+  - type: horizontal-stack
+    cards:
+      - type: gauge
+        entity: sensor.gw_pv
+        name: PV Power
+        min: 0
+        max: 10000
+      - type: gauge
+        entity: sensor.pv_ev_surplus
+        name: PV Surplus
+        min: 0
+        max: 8000
+      - type: gauge
+        entity: sensor.gw_battery
+        name: Battery SOC
+        min: 0
+        max: 100
+  - type: horizontal-stack
+    cards:
+      - type: gauge
+        entity: sensor.pv_ev_available_current
+        name: Available Current
+        min: 0
+        max: 48
+      - type: gauge
+        entity: sensor.pv_ev_target_current
+        name: Target Current
+        min: 0
+        max: 16
+      - type: gauge
+        entity: sensor.pv_ev_current_charging_current
+        name: Current Charging
+        min: 0
+        max: 16
+  - type: horizontal-stack
+    cards:
+      - type: button
+        entity: script.control_charging
+        name: 🔌 CHARGE ON
+        tap_action:
+          action: call-service
+          service: script.control_charging
+          service_data:
+            action: "on"
+      - type: button
+        entity: script.control_charging
+        name: 🔌 CHARGE OFF
+        tap_action:
+          action: call-service
+          service: script.control_charging
+          service_data:
+            action: "off"
+      - type: button
+        entity: script.emergency_stop_charging
+        name: 🛑 EMERGENCY STOP
+        tap_action:
+          action: call-service
+          service: script.emergency_stop_charging

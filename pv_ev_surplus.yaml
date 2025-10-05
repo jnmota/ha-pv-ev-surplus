@@ -977,35 +977,6 @@ automation:
         data:
           option: "Default"
 
-  # Simple test automation to debug EV charge
-  - id: pv_ev_debug_test
-    alias: "PV-EV Debug Test"
-    description: "Test automation to see if basic logic works"
-    trigger:
-      - platform: state
-        entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'on'
-        for:
-          seconds: 5
-    condition:
-      - condition: template
-        value_template: >
-          {% set target_current = states('sensor.pv_ev_target_current') | int(0) %}
-          {% set min_current = states('sensor.pv_ev_min_charging_current') | int(5) %}
-          {% set ev_charge_on = states('sensor.pv_ev_current_charging_state') == 'True' %}
-          {{ target_current >= min_current and not ev_charge_on }}
-    action:
-      - service: persistent_notification.create
-        data:
-          title: "PV-EV Debug Test"
-          message: >
-            Debug test triggered!
-            Target Current: {{ states('sensor.pv_ev_target_current') }}A
-            Min Current: {{ states('sensor.pv_ev_min_charging_current') }}A
-            EV Charge: {{ states('sensor.pv_ev_current_charging_state') }}
-            EV Status: {{ states('sensor.ev_charger_status') }}
-          notification_id: pv_ev_debug_test
-
   # Emergency stop on critical conditions
   - id: pv_ev_emergency_stop
     alias: "PV-EV Emergency Stop"
@@ -1229,15 +1200,6 @@ script:
             data:
               option: "off"
 
-  # Test script to manually turn on EV charge
-  test_ev_charge_on:
-    alias: "Test: Turn ON EV Charge"
-    description: "Manual test to turn on EV charge bypass automation"
-    sequence:
-      - service: script.control_charging
-        data:
-          action: "on"
-
   # Validate and update phase mode
   update_phase_mode:
     alias: "Update Phase Mode"
@@ -1254,28 +1216,3 @@ script:
           entity_id: select.ev_charger_mode
         data:
           option: "{{ phase }}"
-
-  # Simple test automation for immediate trigger
-  simple_test_automation:
-    alias: "Simple Test Automation"
-    description: "Simple test to verify automation works when turned on"
-    sequence:
-      - service: persistent_notification.create
-        data:
-          title: "Test Script Executed"
-          message: >
-            Script executed successfully!
-            Target Current: {{ states('sensor.pv_ev_target_current') }}A
-            Min Current: {{ states('sensor.pv_ev_min_charging_current') }}A
-            EV Status: {{ states('sensor.ev_charger_status') }}
-          notification_id: simple_test_notification
-      - if:
-          - condition: template
-            value_template: >
-              {% set target_current = states('sensor.pv_ev_target_current') | int(0) %}
-              {% set min_current = states('sensor.pv_ev_min_charging_current') | int(5) %}
-              {{ target_current >= min_current }}
-        then:
-          - service: script.control_charging
-            data:
-              action: "on"

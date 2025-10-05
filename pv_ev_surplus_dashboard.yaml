@@ -101,7 +101,6 @@ cards:
       - automation.pv_ev_emergency_stop
       - automation.pv_ev_sensor_validation
       - automation.pv_ev_sensor_monitor
-      - automation.pv_ev_debug_test
   - type: horizontal-stack
     cards:
       - type: gauge

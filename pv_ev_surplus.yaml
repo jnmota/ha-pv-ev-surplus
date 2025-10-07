@@ -684,6 +684,9 @@ automation:
           grid_power: "{{ states('sensor.gw_from_grid') | float(0) }}"
           soc_block: "{{ is_state('input_boolean.min_house_battery_soc_block', 'on') }}"
           grid_block: "{{ is_state('input_boolean.grid_import_block', 'on') }}"
+          phase_needs_update: "{{ target_phase != current_phase }}"
+          current_needs_update: "{{ target_current != current_current }}"
+          needs_to_start_charging: "{{ not charging_state and target_current >= min_charging_current }}"
       
       # Step 1: Safety checks - stop charging if any safety condition fails
       - choose:
@@ -717,11 +720,13 @@ automation:
                   notification_id: pv_ev_safety_stop
               - stop: "Safety conditions not met"
       
-      # Step 2: Check if target current is sufficient
+      # Step 2: Check if target current is sufficient (only stop if currently charging)
       - choose:
           - conditions:
               - condition: template
                 value_template: "{{ target_current < min_charging_current }}"
+              - condition: template
+                value_template: "{{ ev_is_charging }}"
             sequence:
               - service: script.control_charging
                 data:
@@ -737,26 +742,28 @@ automation:
                   notification_id: pv_ev_insufficient_current
               - stop: "Insufficient current for charging"
       
-      # Step 3: ALWAYS update phase/current to match target (if needed) - regardless of charging state
-      # This ensures settings are correct BEFORE we consider starting charging
-      
-      # Sub-step 3A: Handle PHASE changes (requires stopping charging first)
+      # Step 4: Handle PHASE changes (only if needed)
       - if:
           - condition: template
-            value_template: "{{ target_phase != current_phase }}"
+            value_template: "{{ phase_needs_update }}"
         then:
           - service: persistent_notification.create
             data:
               title: "PV-EV: Phase Change Needed"
               message: >
                 Phase: {{ current_phase }} → {{ target_phase }}
-                Stopping charging for phase update...
+                {{ 'Stopping charging for phase update...' if ev_is_charging else 'Updating phase...' }}
               notification_id: pv_ev_phase_change
-          - service: script.control_charging
-            data:
-              action: "off"
-          - delay:
-              seconds: "{{ states('input_number.phase_mode_update_delay') | int }}"
+          # Only stop charging if currently charging
+          - if:
+              - condition: template
+                value_template: "{{ ev_is_charging }}"
+            then:
+              - service: script.control_charging
+                data:
+                  action: "off"
+              - delay:
+                  seconds: "{{ states('input_number.phase_mode_update_delay') | int }}"
           - service: select.select_option
             target:
               entity_id: select.ev_charger_mode
@@ -771,10 +778,10 @@ automation:
                 Phase successfully updated to: {{ target_phase }}
               notification_id: pv_ev_phase_updated
       
-      # Sub-step 3B: Handle CURRENT changes (with margin allowance logic)
+      # Step 5: Handle CURRENT changes (only if needed, with margin allowance logic)
       - if:
           - condition: template
-            value_template: "{{ target_current != current_current }}"
+            value_template: "{{ current_needs_update }}"
         then:
           # Check if this is a DECREASE (margin allowance may apply)
           - if:
@@ -793,7 +800,7 @@ automation:
                   - condition: template
                     value_template: "{{ power_deficit > 0 and power_deficit <= margin_power and counter_value < max_allowance }}"
                 then:
-                  # Within margin - use grace period (NO current update)
+                  # Within margin - use grace period (NO current update, sets current_needs_update to false)
                   - service: counter.increment
                     target:
                       entity_id: counter.ev_margin_allowance_counter
@@ -803,15 +810,17 @@ automation:
                       message: >
                         Deficit: {{ power_deficit | round(0) }}W ≤ Margin: {{ margin_power | round(0) }}W
                         Grace cycles: {{ counter_value + 1 }}/{{ max_allowance }}
-                        Keeping current at {{ current_current }}A
+                        Keeping current at {{ current_current }}A (no API call)
                       notification_id: pv_ev_margin_grace
+                  - variables:
+                      current_needs_update: false
                 else:
                   # Must decrease - update current
                   - service: persistent_notification.create
                     data:
                       title: "PV-EV: Decreasing Current"
                       message: >
-                        {{ current_current }}A → {{ target_current }}A
+                        {{ current_current }}A → {{ target_current }}A (API call)
                       notification_id: pv_ev_decrease
                   - service: script.update_charging_current
                     data:
@@ -825,7 +834,7 @@ automation:
                 data:
                   title: "PV-EV: Increasing Current"
                   message: >
-                    {{ current_current }}A → {{ target_current }}A
+                    {{ current_current }}A → {{ target_current }}A (API call)
                   notification_id: pv_ev_increase
               - service: script.update_charging_current
                 data:
@@ -839,23 +848,23 @@ automation:
             target:
               entity_id: counter.ev_margin_allowance_counter
       
-      # Step 4: NOW that phase/current are correct, ensure charging is ON
-      # Note: We always call control_charging "on" because:
-      # 1. After phase updates, charging was stopped and needs to restart
-      # 2. If not charging and settings are correct, it should start
-      # 3. If already charging with correct settings, the device ignores duplicate ON commands
-      - service: persistent_notification.create
-        data:
-          title: "PV-EV: Ensuring Charging Active"
-          message: >
-            Settings verified:
-            Phase: {{ target_phase }}
-            Current: {{ target_current }}A
-            Ensuring charging is ON...
-          notification_id: pv_ev_ensure_charging
-      - service: script.control_charging
-        data:
-          action: "on"
+      # Step 6: Start charging (only if needed)
+      - if:
+          - condition: template
+            value_template: "{{ needs_to_start_charging }}"
+        then:
+          - service: persistent_notification.create
+            data:
+              title: "PV-EV: Starting Charging"
+              message: >
+                Settings verified:
+                Phase: {{ target_phase }}
+                Current: {{ target_current }}A
+                Starting charging... (API call)
+              notification_id: pv_ev_start_charging
+          - service: script.control_charging
+            data:
+              action: "on"
 
   # Stop charging when automation is turned off
   - id: pv_ev_surplus_automation_off
@@ -914,6 +923,10 @@ automation:
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
         to: 'on'
+    condition:
+      # Only run setup if EV is connected
+      - condition: template
+        value_template: "{{ states('sensor.ev_charger_status') in ['charging', 'connected'] }}"
     action:
       - choose:
           # If Tesla API is enabled, set EV charger to max current
@@ -1102,6 +1115,11 @@ script:
         description: "Action to perform: 'on' or 'off'"
         example: "on"
     sequence:
+      # Check if EV is connected before making API calls
+      - variables:
+          ev_status: "{{ states('sensor.ev_charger_status') }}"
+      - condition: template
+        value_template: "{{ ev_status in ['charging', 'connected'] }}"
       - choose:
           # Use Tesla API
           - conditions:
@@ -1149,6 +1167,11 @@ script:
         description: "Target current in Amperes"
         example: 10
     sequence:
+      # Check if EV is connected before making API calls
+      - variables:
+          ev_status: "{{ states('sensor.ev_charger_status') }}"
+      - condition: template
+        value_template: "{{ ev_status in ['charging', 'connected'] }}"
       - choose:
           # Use Tesla API
           - conditions:

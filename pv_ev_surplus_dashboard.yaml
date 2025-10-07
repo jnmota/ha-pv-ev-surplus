@@ -7,6 +7,16 @@ cards:
     entities:
       - input_boolean.pv_ev_surplus_automation
   - type: entities
+    title: 🔌 Device Controls
+    entities:
+      - number.tesla_model_y_charge_current
+      - switch.tesla_model_y_charge
+      - number.ev_charger_set_charge_current
+      - select.ev_charger_charging
+      - select.ev_charger_mode
+      - sensor.pv_ev_connection_status
+      - sensor.pv_ev_charging_status
+  - type: entities
     title: 🔘 Input Booleans (Switches)
     entities:
       - input_boolean.tesla_charge_current_api
@@ -36,6 +46,13 @@ cards:
       - input_number.min_triphasic_a
       - input_number.min_house_battery_soc
   - type: entities
+    title: 🧮 Current & Phase Sensors
+    entities:
+      - sensor.pv_ev_target_phase
+      - sensor.pv_ev_target_current
+      - sensor.pv_ev_current_phase
+      - sensor.pv_ev_current_charging_current
+  - type: entities
     title: 🔢 Counters
     entities:
       - counter.ev_margin_allowance_counter
@@ -50,12 +67,6 @@ cards:
       - sensor.pv_ev_reserved_power
       - sensor.pv_ev_margin_power
       - sensor.pv_ev_min_charging_current
-      - sensor.pv_ev_target_phase
-      - sensor.pv_ev_target_current
-      - sensor.pv_ev_current_phase
-      - sensor.pv_ev_current_charging_current
-      - sensor.pv_ev_connection_status
-      - sensor.pv_ev_charging_status
       - sensor.pv_ev_safety_check
       - sensor.pv_ev_automation_status
       - sensor.pv_ev_system_health
@@ -74,14 +85,6 @@ cards:
       - sensor.gw_battery_discharge
       - sensor.ev_charger_power
       - sensor.ev_charger_status
-  - type: entities
-    title: 🔌 Device Controls
-    entities:
-      - number.tesla_model_y_charge_current
-      - switch.tesla_model_y_charge
-      - number.ev_charger_set_charge_current
-      - select.ev_charger_charging
-      - select.ev_charger_mode
   - type: entities
     title: ⚙️ Scripts
     entities:

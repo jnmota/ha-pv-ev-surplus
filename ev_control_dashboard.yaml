@@ -1,0 +1,110 @@
+type: sections
+max_columns: 4
+title: EV
+path: ev
+icon: mdi:car-electric
+sections:
+  - type: grid
+    cards:
+      - type: heading
+        icon: mdi:solar-power
+        heading: PV Automation
+        heading_style: title
+      - type: tile
+        grid_options:
+          columns: 12
+          rows: 1
+        entity: input_boolean.pv_ev_surplus_automation
+        name: Surplus Control
+        hide_state: true
+        vertical: false
+        features:
+          - type: toggle
+        features_position: inline
+      - type: heading
+        icon: mdi:car
+        heading: Tesla API
+        heading_style: title
+      - features:
+          - type: toggle
+        type: tile
+        name: Charge
+        entity: switch.tesla_model_y_charge
+        vertical: false
+        grid_options:
+          columns: 12
+          rows: 1
+        hide_state: true
+        features_position: inline
+      - type: tile
+        name: Current
+        grid_options:
+          columns: 12
+          rows: 1
+        entity: number.tesla_model_y_charge_current
+        vertical: false
+        features:
+          - style: slider
+            type: numeric-input
+        features_position: inline
+      - type: tile
+        name: Open Charge Port
+        entity: cover.tesla_model_y_charge_port_door
+        vertical: false
+        tap_action:
+          action: toggle
+        icon_tap_action:
+          action: toggle
+        features_position: bottom
+      - type: tile
+        entity: lock.tesla_model_y_charge_cable_lock
+        name: Unlock Charge Port
+        vertical: false
+        tap_action:
+          action: toggle
+        icon_tap_action:
+          action: toggle
+        features_position: bottom
+      - type: heading
+        icon: mdi:ev-plug-type2
+        heading: EV Charger
+        heading_style: title
+      - type: tile
+        entity: sensor.ev_charger_status
+        name: Status
+        vertical: false
+        features_position: bottom
+      - type: tile
+        entity: sensor.ev_charger_power
+        name: Charging Power
+        vertical: false
+        features_position: bottom
+      - type: custom:mushroom-select-card
+        entity: select.ev_charger_charging
+        name: Power Switch
+        fill_container: false
+        secondary_info: none
+        grid_options:
+          columns: 12
+          rows: 1
+        layout: horizontal
+      - type: custom:mushroom-select-card
+        entity: select.ev_charger_mode
+        name: Power Mode
+        icon: mdi:power-plug
+        grid_options:
+          columns: full
+          rows: 1
+        layout: horizontal
+        secondary_info: none
+      - type: tile
+        grid_options:
+          columns: 12
+          rows: 1
+        entity: number.ev_charger_set_charge_current
+        name: Current
+        vertical: false
+        features:
+          - style: slider
+            type: numeric-input
+        features_position: inline

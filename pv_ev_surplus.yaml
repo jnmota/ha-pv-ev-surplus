@@ -684,7 +684,7 @@ automation:
           grid_power: "{{ states('sensor.gw_from_grid') | float(0) }}"
           soc_block: "{{ is_state('input_boolean.min_house_battery_soc_block', 'on') }}"
           grid_block: "{{ is_state('input_boolean.grid_import_block', 'on') }}"
-          phase_needs_update: "{{ target_phase != current_phase }}"
+          phase_needs_update: "{{ target_phase != current_phase and target_phase in ['Monophasic', 'Triphasic'] }}"
           current_needs_update: "{{ target_current != current_current }}"
           needs_to_start_charging: "{{ not charging_state and target_current >= min_charging_current }}"
       
@@ -726,7 +726,7 @@ automation:
               - condition: template
                 value_template: "{{ target_current < min_charging_current }}"
               - condition: template
-                value_template: "{{ ev_is_charging }}"
+                value_template: "{{ charging_state }}"
             sequence:
               - service: script.control_charging
                 data:
@@ -742,6 +742,22 @@ automation:
                   notification_id: pv_ev_insufficient_current
               - stop: "Insufficient current for charging"
       
+      # Step 3: Early exit if no updates needed (avoid unnecessary API calls)
+      - if:
+          - condition: template
+            value_template: "{{ not phase_needs_update and not current_needs_update and not needs_to_start_charging }}"
+        then:
+          - service: persistent_notification.create
+            data:
+              title: "PV-EV: No Updates Needed"
+              message: >
+                Everything optimal - no API calls needed:
+                Phase: {{ current_phase }} (matches target)
+                Current: {{ current_current }}A (matches target)
+                Charging: {{ 'ON' if charging_state else 'OFF' }} (correct)
+              notification_id: pv_ev_no_updates
+          - stop: "No updates needed - avoiding unnecessary API calls"
+      
       # Step 4: Handle PHASE changes (only if needed)
       - if:
           - condition: template
@@ -752,12 +768,12 @@ automation:
               title: "PV-EV: Phase Change Needed"
               message: >
                 Phase: {{ current_phase }} → {{ target_phase }}
-                {{ 'Stopping charging for phase update...' if ev_is_charging else 'Updating phase...' }}
+                {{ 'Stopping charging for phase update...' if charging_state else 'Updating phase...' }}
               notification_id: pv_ev_phase_change
           # Only stop charging if currently charging
           - if:
               - condition: template
-                value_template: "{{ ev_is_charging }}"
+                value_template: "{{ charging_state }}"
             then:
               - service: script.control_charging
                 data:
@@ -781,7 +797,7 @@ automation:
       # Step 5: Handle CURRENT changes (only if needed, with margin allowance logic)
       - if:
           - condition: template
-            value_template: "{{ current_needs_update }}"
+            value_template: "{{ current_needs_update and target_current > 0 }}"
         then:
           # Check if this is a DECREASE (margin allowance may apply)
           - if:
@@ -874,6 +890,11 @@ automation:
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
         to: 'off'
+    condition:
+      # Only stop charging if currently charging
+      - condition: state
+        entity_id: sensor.pv_ev_current_charging_state
+        state: 'True'
     action:
       - service: script.control_charging
         data:
@@ -926,7 +947,7 @@ automation:
     condition:
       # Only run setup if EV is connected
       - condition: template
-        value_template: "{{ states('sensor.ev_charger_status') in ['charging', 'connected'] }}"
+        value_template: "{{ states('sensor.ev_charger_status') in ['plugged_in', 'charged', 'charging'] }}"
     action:
       - choose:
           # If Tesla API is enabled, set EV charger to max current
@@ -1119,7 +1140,7 @@ script:
       - variables:
           ev_status: "{{ states('sensor.ev_charger_status') }}"
       - condition: template
-        value_template: "{{ ev_status in ['charging', 'connected'] }}"
+        value_template: "{{ ev_status in ['plugged_in', 'charged', 'charging'] }}"
       - choose:
           # Use Tesla API
           - conditions:
@@ -1171,7 +1192,7 @@ script:
       - variables:
           ev_status: "{{ states('sensor.ev_charger_status') }}"
       - condition: template
-        value_template: "{{ ev_status in ['charging', 'connected'] }}"
+        value_template: "{{ ev_status in ['plugged_in', 'charged', 'charging'] }}"
       - choose:
           # Use Tesla API
           - conditions:

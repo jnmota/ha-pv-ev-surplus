@@ -31,6 +31,7 @@ cards:
       - input_number.ev_share_percentage_max
       - input_number.margin_percentage
       - input_number.ev_reserved_margin_allowance
+      - counter.ev_margin_allowance_counter
   - type: entities
     title: 🔢 Intervals Input Numbers (Configuration)
     entities:
@@ -52,10 +53,6 @@ cards:
       - sensor.pv_ev_target_current
       - sensor.pv_ev_current_phase
       - sensor.pv_ev_current_charging_current
-  - type: entities
-    title: 🔢 Counters
-    entities:
-      - counter.ev_margin_allowance_counter
   - type: entities
     title: 🧮 Template Sensors (Calculated)
     entities:

@@ -15,7 +15,8 @@ cards:
       - select.ev_charger_charging
       - select.ev_charger_mode
       - sensor.pv_ev_connection_status
-      - sensor.pv_ev_charging_status
+      - sensor.ev_charger_status
+      - sensor.ev_charger_power
   - type: entities
     title: 🔘 Input Booleans (Switches)
     entities:
@@ -80,8 +81,6 @@ cards:
       - sensor.gw_to_grid
       - sensor.gw_battery_charge
       - sensor.gw_battery_discharge
-      - sensor.ev_charger_power
-      - sensor.ev_charger_status
   - type: entities
     title: ⚙️ Scripts
     entities:

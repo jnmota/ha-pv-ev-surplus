@@ -20,7 +20,7 @@ homeassistant:
     input_boolean.grid_import_block:
       friendly_name: "Grid Import Block"
       icon: mdi:transmission-tower-import
-    
+
     # Configuration Numbers
     input_number.ev_update_interval:
       friendly_name: "EV Update Interval"
@@ -66,24 +66,24 @@ input_boolean:
     name: "PV-EV Surplus Automation"
     initial: false
     icon: mdi:solar-power-variant
-  
+
   # API control switches
   tesla_charge_current_api:
     name: "Tesla Current API"
     initial: true
     icon: mdi:api
-  
+
   tesla_charge_on_off_api:
     name: "Tesla Charge ON/OFF API"
     initial: true
     icon: mdi:api
-  
+
   # Safety blocks
   min_house_battery_soc_block:
     name: "Min Battery SOC Block"
     initial: true
     icon: mdi:battery-alert
-  
+
   grid_import_block:
     name: "Grid Import Block"
     initial: true
@@ -99,7 +99,7 @@ input_number:
     initial: 60
     unit_of_measurement: "s"
     icon: mdi:timer
-  
+
   dashboard_values_update_interval:
     name: "Dashboard Update Interval"
     min: 5
@@ -108,7 +108,7 @@ input_number:
     initial: 10
     unit_of_measurement: "s"
     icon: mdi:timer
-  
+
   # Power sharing percentages
   ev_share_percentage_default:
     name: "EV Share Percentage Default"
@@ -118,7 +118,7 @@ input_number:
     initial: 50
     unit_of_measurement: "%"
     icon: mdi:percent
-  
+
   ev_share_percentage_max:
     name: "EV Share Percentage Max"
     min: 0
@@ -127,17 +127,17 @@ input_number:
     initial: 80
     unit_of_measurement: "%"
     icon: mdi:percent
-  
+
   # Margin and allowance
   margin_percentage:
     name: "Margin Percentage"
     min: 0
-    max: 50
+    max: 75
     step: 5
-    initial: 20
+    initial: 50
     unit_of_measurement: "%"
     icon: mdi:percent
-  
+
   ev_reserved_margin_allowance:
     name: "EV Reserved Margin Allowance"
     min: 1
@@ -146,7 +146,7 @@ input_number:
     initial: 5
     unit_of_measurement: "cycles"
     icon: mdi:counter
-  
+
   # Phase and timing delays
   phase_mode_update_delay:
     name: "Phase Mode Update Delay"
@@ -156,7 +156,7 @@ input_number:
     initial: 5
     unit_of_measurement: "s"
     icon: mdi:timer
-  
+
   # Current limits
   tesla_min_charging_a:
     name: "Tesla Min Charging Current"
@@ -166,7 +166,7 @@ input_number:
     initial: 1
     unit_of_measurement: "A"
     icon: mdi:current-ac
-  
+
   ev_charger_min_charging_a:
     name: "EV Charger Min Charging Current"
     min: 8
@@ -175,25 +175,25 @@ input_number:
     initial: 8
     unit_of_measurement: "A"
     icon: mdi:current-ac
-  
+
   max_monophasic_a:
     name: "Max Monophasic Current"
     min: 8
     max: 16
     step: 1
-    initial: 14
+    initial: 11
     unit_of_measurement: "A"
     icon: mdi:current-ac
-  
+
   min_triphasic_a:
     name: "Min Triphasic Current"
     min: 3
     max: 15
     step: 3
-    initial: 9
+    initial: 12
     unit_of_measurement: "A"
     icon: mdi:current-ac
-  
+
   # Battery SOC limit
   min_house_battery_soc:
     name: "Min House Battery SOC"
@@ -238,7 +238,7 @@ sensor:
           {% set house_load = states('sensor.gw_load') | float(0) %}
           {% set ev_charger_load = states('sensor.ev_charger_power') | float(0) * 1000 %}
           {{ (house_load - ev_charger_load) | round(0) | int }}
-  
+
   # PV Surplus calculation (PV - Real House Load only)
   - platform: template
     sensors:
@@ -254,7 +254,7 @@ sensor:
           {% set real_house_load = states('sensor.pv_ev_real_house_load') | float(0) %}
           {% set surplus = pv_power - real_house_load %}
           {{ (surplus if surplus >= 0 else 0) | round(0) | int }}
-  
+
   # Current EV Share Percentage
   - platform: template
     sensors:
@@ -268,7 +268,7 @@ sensor:
           {% else %}
             {{ states('input_number.ev_share_percentage_default') }}
           {% endif %}
-  
+
   # Available Power for EV
   - platform: template
     sensors:
@@ -280,7 +280,7 @@ sensor:
           {% set surplus = states('sensor.pv_ev_surplus') | float(0) %}
           {% set share_percentage = states('sensor.pv_ev_current_share_percentage') | float(0) %}
           {{ (surplus * share_percentage / 100) | round(0) }}
-  
+
   # Available Current for EV
   - platform: template
     sensors:
@@ -291,7 +291,7 @@ sensor:
         value_template: >
           {% set available_power = states('sensor.pv_ev_available_power') | float(0) %}
           {{ (available_power / 230) | round(1) }}
-  
+
   # Reserved Power
   - platform: template
     sensors:
@@ -304,7 +304,7 @@ sensor:
           {% set available_power = states('sensor.pv_ev_available_power') | float(0) %}
           {% set reserved = surplus - available_power %}
           {{ (reserved if reserved >= 0 else 0) | round(0) }}
-  
+
   # Margin Power
   - platform: template
     sensors:
@@ -316,7 +316,7 @@ sensor:
           {% set reserved_power = states('sensor.pv_ev_reserved_power') | float(0) %}
           {% set margin_percentage = states('input_number.margin_percentage') | float(0) %}
           {{ (reserved_power * margin_percentage / 100) | round(0) }}
-  
+
   # Minimum Charging Current (based on API mode)
   - platform: template
     sensors:
@@ -330,7 +330,7 @@ sensor:
           {% else %}
             {{ states('input_number.ev_charger_min_charging_a') }}
           {% endif %}
-  
+
   # Target Phase Mode calculation
   - platform: template
     sensors:
@@ -342,7 +342,7 @@ sensor:
           {% set max_mono = states('input_number.max_monophasic_a') | float(14) %}
           {% set min_tri = states('input_number.min_triphasic_a') | float(12) %}
           {% set min_charging = states('sensor.pv_ev_min_charging_current') | float(5) %}
-          
+
           {% if available_current < min_charging %}
             None
           {% elif available_current > max_mono %}
@@ -354,7 +354,7 @@ sensor:
           {% else %}
             None
           {% endif %}
-  
+
   # Target Current calculation
   - platform: template
     sensors:
@@ -367,7 +367,7 @@ sensor:
           {% set target_phase = states('sensor.pv_ev_target_phase') %}
           {% set min_charging = states('sensor.pv_ev_min_charging_current') | float(5) %}
           {% set max_mono = states('input_number.max_monophasic_a') | float(14) %}
-          
+
           {% if target_phase == 'None' or available_current < min_charging %}
             0
           {% elif target_phase == 'Triphasic' %}
@@ -387,7 +387,7 @@ sensor:
           {% else %}
             0
           {% endif %}
-  
+
   # Current Phase Mode
   - platform: template
     sensors:
@@ -396,7 +396,7 @@ sensor:
         icon_template: mdi:electric-switch
         value_template: >
           {{ states('select.ev_charger_mode') }}
-  
+
   # Current Charging Current (based on API mode)
   - platform: template
     sensors:
@@ -410,7 +410,7 @@ sensor:
           {% else %}
             {{ states('number.ev_charger_set_charge_current') | float(0) }}
           {% endif %}
-  
+
   # EV Connection Status
   - platform: template
     sensors:
@@ -424,7 +424,7 @@ sensor:
           {% else %}
             Disconnected
           {% endif %}
-  
+
   # EV Charging Status
   - platform: template
     sensors:
@@ -447,10 +447,10 @@ sensor:
           {% set grid_power = states('sensor.gw_from_grid') | float(0) %}
           {% set soc_block = is_state('input_boolean.min_house_battery_soc_block', 'on') %}
           {% set grid_block = is_state('input_boolean.grid_import_block', 'on') %}
-          
+
           {% set soc_ok = not soc_block or battery_soc >= min_soc %}
           {% set grid_ok = not grid_block or grid_power <= 0 %}
-          
+
           {% if soc_ok and grid_ok %}
             OK
           {% elif not soc_ok %}
@@ -460,7 +460,7 @@ sensor:
           {% else %}
             Multiple Issues
           {% endif %}
-  
+
   # Automation Status
   - platform: template
     sensors:
@@ -496,7 +496,7 @@ sensor:
           {% set soc_block = is_state('input_boolean.min_house_battery_soc_block', 'on') %}
           {% set grid_power = states('sensor.gw_from_grid') | float(0) %}
           {% set grid_block = is_state('input_boolean.grid_import_block', 'on') %}
-          
+
           {% if not automation_on %}
             Automation OFF
           {% elif ev_status not in ['plugged_in', 'charged', 'charging'] %}
@@ -550,7 +550,7 @@ sensor:
           ] %}
           {% set unavailable = [] %}
           {% set warning = [] %}
-          
+
           {% for sensor in sensors %}
             {% set state = states(sensor) %}
             {% if state in ['unavailable', 'unknown'] %}
@@ -559,7 +559,7 @@ sensor:
               {% set warning = warning + [sensor] %}
             {% endif %}
           {% endfor %}
-          
+
           {% if unavailable | length > 0 %}
             Critical
           {% elif warning | length > 0 %}
@@ -613,12 +613,12 @@ automation:
       # Immediate trigger when automation is turned on
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'on'
+        to: "on"
         id: "automation_turned_on"
     condition:
       - condition: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        state: 'on'
+        state: "on"
     action:
       # Debug notification
       - service: persistent_notification.create
@@ -632,7 +632,7 @@ automation:
             EV Status: {{ states('sensor.ev_charger_status') }}
             Battery SOC: {{ states('sensor.gw_battery') }}%
           notification_id: pv_ev_debug
-      
+
       # For interval triggers, check if it's time to update based on the configured interval
       - if:
           - condition: and
@@ -651,7 +651,7 @@ automation:
                 id: "interval_trigger"
             then:
               - stop: "Not time for scheduled update yet"
-      
+
       # UNIFIED LOGIC: This runs for both interval triggers and automation turn-on
       - variables:
           target_current: "{{ states('sensor.pv_ev_target_current') | int }}"
@@ -664,12 +664,13 @@ automation:
           battery_soc: "{{ states('sensor.gw_battery') | float(0) }}"
           min_soc: "{{ states('input_number.min_house_battery_soc') | float(0) }}"
           grid_power: "{{ states('sensor.gw_from_grid') | float(0) }}"
+          available_power_for_ev: "{{ states('sensor.pv_ev_available_power') | float(0) }}"
           soc_block: "{{ is_state('input_boolean.min_house_battery_soc_block', 'on') }}"
           grid_block: "{{ is_state('input_boolean.grid_import_block', 'on') }}"
           phase_needs_update: "{{ target_phase != current_phase and target_phase in ['Monophasic', 'Triphasic'] }}"
           current_needs_update: "{{ target_current != current_current }}"
           needs_to_start_charging: "{{ not charging_state and target_current >= min_charging_current }}"
-      
+
       # Step 1: Safety checks - stop charging if any safety condition fails (only if currently charging)
       - choose:
           - conditions:
@@ -683,9 +684,9 @@ automation:
                   # Battery SOC too low
                   - condition: template
                     value_template: "{{ soc_block and battery_soc < min_soc }}"
-                  # Grid import detected
+                  # Grid import detected AND insufficient available power
                   - condition: template
-                    value_template: "{{ grid_block and grid_power > 0 }}"
+                    value_template: "{{ grid_block and grid_power > 0 and available_power_for_ev <= 0 }}"
             sequence:
               - service: script.control_charging
                 data:
@@ -701,6 +702,7 @@ automation:
                     EV Status: {{ ev_status }}
                     Battery SOC: {{ battery_soc }}% (min: {{ min_soc }}%)
                     Grid Power: {{ grid_power }}W
+                    Available Power for EV: {{ available_power_for_ev }}W
                   notification_id: pv_ev_safety_stop
               - stop: "Safety conditions not met"
           # If safety check fails but not charging, just stop automation (no API call needed)
@@ -715,9 +717,9 @@ automation:
                   # Battery SOC too low
                   - condition: template
                     value_template: "{{ soc_block and battery_soc < min_soc }}"
-                  # Grid import detected
+                  # Grid import detected AND insufficient available power
                   - condition: template
-                    value_template: "{{ grid_block and grid_power > 0 }}"
+                    value_template: "{{ grid_block and grid_power > 0 and available_power_for_ev <= 0 }}"
             sequence:
               - service: counter.reset
                 target:
@@ -730,9 +732,10 @@ automation:
                     EV Status: {{ ev_status }}
                     Battery SOC: {{ battery_soc }}% (min: {{ min_soc }}%)
                     Grid Power: {{ grid_power }}W
+                    Available Power for EV: {{ available_power_for_ev }}W
                   notification_id: pv_ev_safety_check
               - stop: "Safety conditions not met"
-      
+
       # Step 2: Check if target current is sufficient (only stop if currently charging)
       - choose:
           - conditions:
@@ -754,7 +757,7 @@ automation:
                     Target current {{ target_current }}A is below minimum {{ min_charging_current }}A
                   notification_id: pv_ev_insufficient_current
               - stop: "Insufficient current for charging"
-      
+
       # Step 3: Early exit if no updates needed (avoid unnecessary API calls)
       - if:
           - condition: template
@@ -770,7 +773,7 @@ automation:
                 Charging: {{ 'ON' if charging_state else 'OFF' }} (correct)
               notification_id: pv_ev_no_updates
           - stop: "No updates needed - avoiding unnecessary API calls"
-      
+
       # Step 4: Handle PHASE changes (only if needed)
       - if:
           - condition: template
@@ -806,7 +809,11 @@ automation:
               message: >
                 Phase successfully updated to: {{ target_phase }}
               notification_id: pv_ev_phase_updated
-      
+          # After phase change, recalculate if we need to start charging
+          - variables:
+              charging_state: "{{ is_state('sensor.ev_charger_status', 'charging') }}"
+              needs_to_start_charging: "{{ not is_state('sensor.ev_charger_status', 'charging') and target_current >= min_charging_current }}"
+
       # Step 5: Handle CURRENT changes (only if needed, with margin allowance logic)
       - if:
           - condition: template
@@ -872,11 +879,20 @@ automation:
                 target:
                   entity_id: counter.ev_margin_allowance_counter
         else:
-          # Current matches target - reset margin counter
-          - service: counter.reset
-            target:
-              entity_id: counter.ev_margin_allowance_counter
-      
+          # Current matches target - check if we should reset margin counter
+          - variables:
+              available_power: "{{ states('sensor.pv_ev_available_power') | float(0) }}"
+              current_power: "{{ current_current * 230 * (3 if target_phase == 'Triphasic' else 1) }}"
+              power_deficit: "{{ current_power - available_power }}"
+          - if:
+              # Reset counter if no deficit (power is sufficient)
+              - condition: template
+                value_template: "{{ power_deficit <= 0 }}"
+            then:
+              - service: counter.reset
+                target:
+                  entity_id: counter.ev_margin_allowance_counter
+
       # Step 6: Start charging (only if needed)
       - if:
           - condition: template
@@ -902,12 +918,12 @@ automation:
     trigger:
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'off'
+        to: "off"
     condition:
       # Only stop charging if currently charging
       - condition: state
         entity_id: sensor.pv_ev_current_charging_state
-        state: 'True'
+        state: "True"
     action:
       - service: script.control_charging
         data:
@@ -929,7 +945,7 @@ automation:
           - conditions:
               - condition: state
                 entity_id: input_boolean.tesla_charge_current_api
-                state: 'on'
+                state: "on"
             sequence:
               - service: number.set_value
                 target:
@@ -956,7 +972,7 @@ automation:
     trigger:
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'on'
+        to: "on"
     condition:
       # Only run setup if EV is connected
       - condition: template
@@ -967,7 +983,7 @@ automation:
           - conditions:
               - condition: state
                 entity_id: input_boolean.tesla_charge_current_api
-                state: 'on'
+                state: "on"
             sequence:
               - service: number.set_value
                 target:
@@ -985,7 +1001,7 @@ automation:
         above: 99.9
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'on'
+        to: "on"
     condition:
       - condition: numeric_state
         entity_id: sensor.gw_battery
@@ -1007,7 +1023,7 @@ automation:
         below: 99.9
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'on'
+        to: "on"
     condition:
       - condition: and
         conditions:
@@ -1035,7 +1051,7 @@ automation:
           {% set grid_power = states('sensor.gw_from_grid') | float(0) %}
           {% set ev_status = states('sensor.ev_charger_status') %}
           {% set pv_power = states('sensor.gw_pv') | float(0) %}
-          
+
           {% if battery_soc == -1 or ev_status == 'unknown' or ev_status == 'unavailable' %}
             true
           {% elif battery_soc < 5 %}
@@ -1050,7 +1066,7 @@ automation:
     condition:
       - condition: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        state: 'on'
+        state: "on"
     action:
       - service: script.emergency_stop_charging
       - service: persistent_notification.create
@@ -1071,7 +1087,7 @@ automation:
     trigger:
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        to: 'on'
+        to: "on"
     action:
       - variables:
           missing_sensors: >
@@ -1116,15 +1132,15 @@ automation:
           - sensor.gw_from_grid
           - sensor.ev_charger_power
           - sensor.ev_charger_status
-        to: 
-          - 'unavailable'
-          - 'unknown'
+        to:
+          - "unavailable"
+          - "unknown"
         for:
           seconds: 30
     condition:
       - condition: state
         entity_id: input_boolean.pv_ev_surplus_automation
-        state: 'on'
+        state: "on"
     action:
       - service: script.emergency_stop_charging
       - service: input_boolean.turn_off
@@ -1159,7 +1175,7 @@ script:
           - conditions:
               - condition: state
                 entity_id: input_boolean.tesla_charge_on_off_api
-                state: 'on'
+                state: "on"
             sequence:
               - choose:
                   - conditions:
@@ -1211,7 +1227,7 @@ script:
           - conditions:
               - condition: state
                 entity_id: input_boolean.tesla_charge_current_api
-                state: 'on'
+                state: "on"
               - condition: template
                 value_template: "{{ current | int >= 1 and current | int <= 16 }}"
             sequence:
@@ -1245,7 +1261,7 @@ script:
           - conditions:
               - condition: state
                 entity_id: input_boolean.tesla_charge_on_off_api
-                state: 'on'
+                state: "on"
             sequence:
               - service: switch.turn_off
                 target:

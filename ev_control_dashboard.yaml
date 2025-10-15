@@ -48,6 +48,16 @@ sections:
             type: numeric-input
         features_position: inline
       - type: tile
+        entity: sensor.tesla_model_y_battery_level
+        name: Battery
+        vertical: false
+        features_position: bottom
+      - type: tile
+        entity: sensor.tesla_model_y_charge_rate
+        name: Charge Rate
+        vertical: false
+        features_position: bottom
+      - type: tile
         name: Open Charge Port
         entity: cover.tesla_model_y_charge_port_door
         vertical: false
@@ -108,3 +118,4 @@ sections:
           - style: slider
             type: numeric-input
         features_position: inline
+cards: []

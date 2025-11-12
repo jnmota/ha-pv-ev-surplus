@@ -64,7 +64,7 @@ input_boolean:
   # Main automation switch
   pv_ev_surplus_automation:
     name: "PV-EV Surplus Automation"
-    initial: false
+    initial: true
     icon: mdi:solar-power-variant
 
   # API control switches
@@ -134,7 +134,7 @@ input_number:
     min: 0
     max: 75
     step: 5
-    initial: 50
+    initial: 75
     unit_of_measurement: "%"
     icon: mdi:percent
 

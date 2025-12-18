@@ -223,121 +223,104 @@ counter:
     icon: mdi:counter
 
 # Template Sensors for Calculations
-sensor:
-  # Real House Load (excluding EV charger)
-  - platform: template
-    sensors:
-      pv_ev_real_house_load:
-        friendly_name: "Real House Load"
+template:
+  - sensor:
+      # Real House Load (excluding EV charger)
+      - name: "Real House Load"
+        unique_id: pv_ev_real_house_load
         unit_of_measurement: "W"
-        icon_template: mdi:home-lightning-bolt
-        availability_template: >
+        icon: mdi:home-lightning-bolt
+        availability: >
           {{ states('sensor.gw_load') not in ['unavailable', 'unknown'] and
              states('sensor.ev_charger_power') not in ['unavailable', 'unknown'] }}
-        value_template: >
+        state: >
           {% set house_load = states('sensor.gw_load') | float(0) %}
           {% set ev_charger_load = states('sensor.ev_charger_power') | float(0) * 1000 %}
           {{ (house_load - ev_charger_load) | round(0) | int }}
 
-  # PV Surplus calculation (PV - Real House Load only)
-  - platform: template
-    sensors:
-      pv_ev_surplus:
-        friendly_name: "PV Surplus"
+      # PV Surplus calculation (PV - Real House Load only)
+      - name: "PV Surplus"
+        unique_id: pv_ev_surplus
         unit_of_measurement: "W"
-        icon_template: mdi:solar-power-variant
-        availability_template: >
+        icon: mdi:solar-power-variant
+        availability: >
           {{ states('sensor.gw_pv') not in ['unavailable', 'unknown'] and
              states('sensor.pv_ev_real_house_load') not in ['unavailable', 'unknown'] }}
-        value_template: >
+        state: >
           {% set pv_power = states('sensor.gw_pv') | float(0) %}
           {% set real_house_load = states('sensor.pv_ev_real_house_load') | float(0) %}
           {% set surplus = pv_power - real_house_load %}
           {{ (surplus if surplus >= 0 else 0) | round(0) | int }}
 
-  # Current EV Share Percentage
-  - platform: template
-    sensors:
-      pv_ev_current_share_percentage:
-        friendly_name: "Current EV Share Percentage"
+      # Current EV Share Percentage
+      - name: "Current EV Share Percentage"
+        unique_id: pv_ev_current_share_percentage
         unit_of_measurement: "%"
-        icon_template: mdi:percent
-        value_template: >
+        icon: mdi:percent
+        state: >
           {% if states('input_select.ev_share_percentage') == 'Max' %}
             {{ states('input_number.ev_share_percentage_max') }}
           {% else %}
             {{ states('input_number.ev_share_percentage_default') }}
           {% endif %}
 
-  # Available Power for EV
-  - platform: template
-    sensors:
-      pv_ev_available_power:
-        friendly_name: "Available Power for EV"
+      # Available Power for EV
+      - name: "Available Power for EV"
+        unique_id: pv_ev_available_power
         unit_of_measurement: "W"
-        icon_template: mdi:car-electric
-        value_template: >
+        icon: mdi:car-electric
+        state: >
           {% set surplus = states('sensor.pv_ev_surplus') | float(0) %}
           {% set share_percentage = states('sensor.pv_ev_current_share_percentage') | float(0) %}
           {{ (surplus * share_percentage / 100) | round(0) }}
 
-  # Available Current for EV
-  - platform: template
-    sensors:
-      pv_ev_available_current:
-        friendly_name: "Available Current for EV"
+      # Available Current for EV
+      - name: "Available Current for EV"
+        unique_id: pv_ev_available_current
         unit_of_measurement: "A"
-        icon_template: mdi:current-ac
-        value_template: >
+        icon: mdi:current-ac
+        state: >
           {% set available_power = states('sensor.pv_ev_available_power') | float(0) %}
           {{ (available_power / 230) | round(1) }}
 
-  # Reserved Power
-  - platform: template
-    sensors:
-      pv_ev_reserved_power:
-        friendly_name: "Reserved Power"
+      # Reserved Power
+      - name: "Reserved Power"
+        unique_id: pv_ev_reserved_power
         unit_of_measurement: "W"
-        icon_template: mdi:battery-charging
-        value_template: >
+        icon: mdi:battery-charging
+        state: >
           {% set surplus = states('sensor.pv_ev_surplus') | float(0) %}
           {% set available_power = states('sensor.pv_ev_available_power') | float(0) %}
           {% set reserved = surplus - available_power %}
           {{ (reserved if reserved >= 0 else 0) | round(0) }}
 
-  # Margin Power
-  - platform: template
-    sensors:
-      pv_ev_margin_power:
-        friendly_name: "Margin Power"
+      # Margin Power
+      - name: "Margin Power"
+        unique_id: pv_ev_margin_power
         unit_of_measurement: "W"
-        icon_template: mdi:margin
-        value_template: >
+        icon: mdi:margin
+        state: >
           {% set reserved_power = states('sensor.pv_ev_reserved_power') | float(0) %}
           {% set margin_percentage = states('input_number.margin_percentage') | float(0) %}
           {{ (reserved_power * margin_percentage / 100) | round(0) }}
 
-  # Minimum Charging Current (based on API mode)
-  - platform: template
-    sensors:
-      pv_ev_min_charging_current:
-        friendly_name: "Min Charging Current"
+      # Minimum Charging Current (based on API mode)
+      - name: "Min Charging Current"
+        unique_id: pv_ev_min_charging_current
         unit_of_measurement: "A"
-        icon_template: mdi:current-ac
-        value_template: >
+        icon: mdi:current-ac
+        state: >
           {% if is_state('input_boolean.tesla_charge_current_api', 'on') %}
             {{ states('input_number.tesla_min_charging_a') }}
           {% else %}
             {{ states('input_number.ev_charger_min_charging_a') }}
           {% endif %}
 
-  # Target Phase Mode calculation
-  - platform: template
-    sensors:
-      pv_ev_target_phase:
-        friendly_name: "Target Phase Mode"
-        icon_template: mdi:electric-switch
-        value_template: >
+      # Target Phase Mode calculation
+      - name: "Target Phase Mode"
+        unique_id: pv_ev_target_phase
+        icon: mdi:electric-switch
+        state: >
           {% set available_current = states('sensor.pv_ev_available_current') | float(0) %}
           {% set max_mono = states('input_number.max_monophasic_a') | float(14) %}
           {% set min_tri = states('input_number.min_triphasic_a') | float(12) %}
@@ -355,14 +338,12 @@ sensor:
             None
           {% endif %}
 
-  # Target Current calculation
-  - platform: template
-    sensors:
-      pv_ev_target_current:
-        friendly_name: "Target Current"
+      # Target Current calculation
+      - name: "Target Current"
+        unique_id: pv_ev_target_current
         unit_of_measurement: "A"
-        icon_template: mdi:current-ac
-        value_template: >
+        icon: mdi:current-ac
+        state: >
           {% set available_current = states('sensor.pv_ev_available_current') | float(0) %}
           {% set target_phase = states('sensor.pv_ev_target_phase') %}
           {% set min_charging = states('sensor.pv_ev_min_charging_current') | float(5) %}
@@ -388,36 +369,30 @@ sensor:
             0
           {% endif %}
 
-  # Current Phase Mode
-  - platform: template
-    sensors:
-      pv_ev_current_phase:
-        friendly_name: "Current Phase Mode"
-        icon_template: mdi:electric-switch
-        value_template: >
+      # Current Phase Mode
+      - name: "Current Phase Mode"
+        unique_id: pv_ev_current_phase
+        icon: mdi:electric-switch
+        state: >
           {{ states('select.ev_charger_mode') }}
 
-  # Current Charging Current (based on API mode)
-  - platform: template
-    sensors:
-      pv_ev_current_charging_current:
-        friendly_name: "Current Charging Current"
+      # Current Charging Current (based on API mode)
+      - name: "Current Charging Current"
+        unique_id: pv_ev_current_charging_current
         unit_of_measurement: "A"
-        icon_template: mdi:current-ac
-        value_template: >
+        icon: mdi:current-ac
+        state: >
           {% if is_state('input_boolean.tesla_charge_current_api', 'on') %}
             {{ states('number.tesla_model_y_charge_current') | float(0) }}
           {% else %}
             {{ states('number.ev_charger_set_charge_current') | float(0) }}
           {% endif %}
 
-  # EV Connection Status
-  - platform: template
-    sensors:
-      pv_ev_connection_status:
-        friendly_name: "EV Connection Status"
-        icon_template: mdi:car-electric
-        value_template: >
+      # EV Connection Status
+      - name: "EV Connection Status"
+        unique_id: pv_ev_connection_status
+        icon: mdi:car-electric
+        state: >
           {% set status = states('sensor.ev_charger_status') %}
           {% if status in ['plugged_in', 'charged', 'charging'] %}
             Connected
@@ -425,23 +400,18 @@ sensor:
             Disconnected
           {% endif %}
 
-  # EV Charging Status
-  - platform: template
-    sensors:
       # Current charging state (boolean) - uses actual device status
-      pv_ev_current_charging_state:
-        friendly_name: "Current Charging State"
-        icon_template: mdi:car-electric
-        value_template: >
+      - name: "Current Charging State"
+        unique_id: pv_ev_current_charging_state
+        icon: mdi:car-electric
+        state: >
           {{ is_state('sensor.ev_charger_status', 'charging') }}
 
-  # Safety Check Status
-  - platform: template
-    sensors:
-      pv_ev_safety_check:
-        friendly_name: "Safety Check Status"
-        icon_template: mdi:shield-check
-        value_template: >
+      # Safety Check Status
+      - name: "Safety Check Status"
+        unique_id: pv_ev_safety_check
+        icon: mdi:shield-check
+        state: >
           {% set battery_soc = states('sensor.gw_battery') | float(0) %}
           {% set min_soc = states('input_number.min_house_battery_soc') | float(0) %}
           {% set grid_power = states('sensor.gw_from_grid') | float(0) %}
@@ -461,31 +431,27 @@ sensor:
             Multiple Issues
           {% endif %}
 
-  # Automation Status
-  - platform: template
-    sensors:
-      pv_ev_automation_status:
-        friendly_name: "Automation Status"
-        icon_template: >
+      # Automation Status
+      - name: "Automation Status"
+        unique_id: pv_ev_automation_status
+        icon: >
           {% if is_state('input_boolean.pv_ev_surplus_automation', 'on') %}
             mdi:play-circle
           {% else %}
             mdi:stop-circle
           {% endif %}
-        value_template: >
+        state: >
           {% if is_state('input_boolean.pv_ev_surplus_automation', 'on') %}
             Active
           {% else %}
             Inactive
           {% endif %}
 
-    # Test why EV charge isn't turning on
-  - platform: template
-    sensors:
-      pv_ev_debug_why_not_charging:
-        friendly_name: "Debug: Why Not Charging"
-        icon_template: mdi:bug
-        value_template: >
+      # Test why EV charge isn't turning on
+      - name: "Debug: Why Not Charging"
+        unique_id: pv_ev_debug_why_not_charging
+        icon: mdi:bug
+        state: >
           {% set automation_on = is_state('input_boolean.pv_ev_surplus_automation', 'on') %}
           {% set target_current = states('sensor.pv_ev_target_current') | int(0) %}
           {% set min_current = states('sensor.pv_ev_min_charging_current') | int(5) %}
@@ -516,21 +482,19 @@ sensor:
           {% endif %}
 
       # Test if Case 2 condition is met
-      pv_ev_debug_case2_condition:
-        friendly_name: "Debug: Case 2 Condition Met"
-        icon_template: mdi:check-circle
-        value_template: >
+      - name: "Debug: Case 2 Condition Met"
+        unique_id: pv_ev_debug_case2_condition
+        icon: mdi:check-circle
+        state: >
           {% set target_current = states('sensor.pv_ev_target_current') | int(0) %}
           {% set min_current = states('sensor.pv_ev_min_charging_current') | int(5) %}
           {% set ev_charge_on = states('sensor.pv_ev_current_charging_state') == 'True' %}
           {{ target_current >= min_current and not ev_charge_on }}
 
-  # System Health Check
-  - platform: template
-    sensors:
-      pv_ev_system_health:
-        friendly_name: "System Health"
-        icon_template: >
+      # System Health Check
+      - name: "System Health"
+        unique_id: pv_ev_system_health
+        icon: >
           {% set health = states('sensor.pv_ev_system_health') %}
           {% if health == 'Healthy' %}
             mdi:check-circle
@@ -539,7 +503,7 @@ sensor:
           {% else %}
             mdi:close-circle
           {% endif %}
-        value_template: >
+        state: >
           {% set sensors = [
             'sensor.gw_battery',
             'sensor.gw_pv', 
@@ -568,14 +532,12 @@ sensor:
             Healthy
           {% endif %}
 
-  # Performance Metrics
-  - platform: template
-    sensors:
-      pv_ev_efficiency_ratio:
-        friendly_name: "EV Charging Efficiency"
+      # Performance Metrics
+      - name: "EV Charging Efficiency"
+        unique_id: pv_ev_efficiency_ratio
         unit_of_measurement: "%"
-        icon_template: mdi:speedometer
-        value_template: >
+        icon: mdi:speedometer
+        state: >
           {% set available_power = states('sensor.pv_ev_available_power') | float(0) %}
           {% set actual_power = states('sensor.ev_charger_power') | float(0) * 1000 %}
           {% if available_power > 0 %}
@@ -584,14 +546,12 @@ sensor:
             0
           {% endif %}
 
-  # Total Energy Tracking (if energy sensors available)
-  - platform: template
-    sensors:
-      pv_ev_daily_energy:
-        friendly_name: "Daily EV Energy from PV"
+      # Total Energy Tracking (if energy sensors available)
+      - name: "Daily EV Energy from PV"
+        unique_id: pv_ev_daily_energy
         unit_of_measurement: "kWh"
-        icon_template: mdi:lightning-bolt
-        value_template: >
+        icon: mdi:lightning-bolt
+        state: >
           {% if states('sensor.ev_charger_energy_daily') != 'unavailable' %}
             {{ states('sensor.ev_charger_energy_daily') | float(0) }}
           {% else %}

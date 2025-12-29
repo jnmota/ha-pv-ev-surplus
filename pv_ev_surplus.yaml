@@ -227,7 +227,7 @@ template:
   - sensor:
       # Real House Load (excluding EV charger)
       - name: "Real House Load"
-        unique_id: pv_ev_real_house_load
+        default_entity_id: sensor.pv_ev_real_house_load
         unit_of_measurement: "W"
         icon: mdi:home-lightning-bolt
         availability: >
@@ -240,7 +240,7 @@ template:
 
       # PV Surplus calculation (PV - Real House Load only)
       - name: "PV Surplus"
-        unique_id: pv_ev_surplus
+        default_entity_id: sensor.pv_ev_surplus
         unit_of_measurement: "W"
         icon: mdi:solar-power-variant
         availability: >
@@ -254,7 +254,7 @@ template:
 
       # Current EV Share Percentage
       - name: "Current EV Share Percentage"
-        unique_id: pv_ev_current_share_percentage
+        default_entity_id: sensor.pv_ev_current_share_percentage
         unit_of_measurement: "%"
         icon: mdi:percent
         state: >
@@ -266,7 +266,7 @@ template:
 
       # Available Power for EV
       - name: "Available Power for EV"
-        unique_id: pv_ev_available_power
+        default_entity_id: sensor.pv_ev_available_power
         unit_of_measurement: "W"
         icon: mdi:car-electric
         state: >
@@ -276,7 +276,7 @@ template:
 
       # Available Current for EV
       - name: "Available Current for EV"
-        unique_id: pv_ev_available_current
+        default_entity_id: sensor.pv_ev_available_current
         unit_of_measurement: "A"
         icon: mdi:current-ac
         state: >
@@ -285,7 +285,7 @@ template:
 
       # Reserved Power
       - name: "Reserved Power"
-        unique_id: pv_ev_reserved_power
+        default_entity_id: sensor.pv_ev_reserved_power
         unit_of_measurement: "W"
         icon: mdi:battery-charging
         state: >
@@ -296,7 +296,7 @@ template:
 
       # Margin Power
       - name: "Margin Power"
-        unique_id: pv_ev_margin_power
+        default_entity_id: sensor.pv_ev_margin_power
         unit_of_measurement: "W"
         icon: mdi:margin
         state: >
@@ -306,7 +306,7 @@ template:
 
       # Minimum Charging Current (based on API mode)
       - name: "Min Charging Current"
-        unique_id: pv_ev_min_charging_current
+        default_entity_id: sensor.pv_ev_min_charging_current
         unit_of_measurement: "A"
         icon: mdi:current-ac
         state: >
@@ -318,7 +318,7 @@ template:
 
       # Target Phase Mode calculation
       - name: "Target Phase Mode"
-        unique_id: pv_ev_target_phase
+        default_entity_id: sensor.pv_ev_target_phase
         icon: mdi:electric-switch
         state: >
           {% set available_current = states('sensor.pv_ev_available_current') | float(0) %}
@@ -340,7 +340,7 @@ template:
 
       # Target Current calculation
       - name: "Target Current"
-        unique_id: pv_ev_target_current
+        default_entity_id: sensor.pv_ev_target_current
         unit_of_measurement: "A"
         icon: mdi:current-ac
         state: >
@@ -371,14 +371,14 @@ template:
 
       # Current Phase Mode
       - name: "Current Phase Mode"
-        unique_id: pv_ev_current_phase
+        default_entity_id: sensor.pv_ev_current_phase
         icon: mdi:electric-switch
         state: >
           {{ states('select.ev_charger_mode') }}
 
       # Current Charging Current (based on API mode)
       - name: "Current Charging Current"
-        unique_id: pv_ev_current_charging_current
+        default_entity_id: sensor.pv_ev_current_charging_current
         unit_of_measurement: "A"
         icon: mdi:current-ac
         state: >
@@ -390,7 +390,7 @@ template:
 
       # EV Connection Status
       - name: "EV Connection Status"
-        unique_id: pv_ev_connection_status
+        default_entity_id: sensor.pv_ev_connection_status
         icon: mdi:car-electric
         state: >
           {% set status = states('sensor.ev_charger_status') %}
@@ -402,14 +402,14 @@ template:
 
       # Current charging state (boolean) - uses actual device status
       - name: "Current Charging State"
-        unique_id: pv_ev_current_charging_state
+        default_entity_id: sensor.pv_ev_current_charging_state
         icon: mdi:car-electric
         state: >
           {{ is_state('sensor.ev_charger_status', 'charging') }}
 
       # Safety Check Status
       - name: "Safety Check Status"
-        unique_id: pv_ev_safety_check
+        default_entity_id: sensor.pv_ev_safety_check
         icon: mdi:shield-check
         state: >
           {% set battery_soc = states('sensor.gw_battery') | float(0) %}
@@ -433,7 +433,7 @@ template:
 
       # Automation Status
       - name: "Automation Status"
-        unique_id: pv_ev_automation_status
+        default_entity_id: sensor.pv_ev_automation_status
         icon: >
           {% if is_state('input_boolean.pv_ev_surplus_automation', 'on') %}
             mdi:play-circle
@@ -449,7 +449,7 @@ template:
 
       # Test why EV charge isn't turning on
       - name: "Debug: Why Not Charging"
-        unique_id: pv_ev_debug_why_not_charging
+        default_entity_id: sensor.pv_ev_debug_why_not_charging
         icon: mdi:bug
         state: >
           {% set automation_on = is_state('input_boolean.pv_ev_surplus_automation', 'on') %}
@@ -483,7 +483,7 @@ template:
 
       # Test if Case 2 condition is met
       - name: "Debug: Case 2 Condition Met"
-        unique_id: pv_ev_debug_case2_condition
+        default_entity_id: sensor.pv_ev_debug_case2_condition
         icon: mdi:check-circle
         state: >
           {% set target_current = states('sensor.pv_ev_target_current') | int(0) %}
@@ -493,7 +493,7 @@ template:
 
       # System Health Check
       - name: "System Health"
-        unique_id: pv_ev_system_health
+        default_entity_id: sensor.pv_ev_system_health
         icon: >
           {% set health = states('sensor.pv_ev_system_health') %}
           {% if health == 'Healthy' %}
@@ -534,7 +534,7 @@ template:
 
       # Performance Metrics
       - name: "EV Charging Efficiency"
-        unique_id: pv_ev_efficiency_ratio
+        default_entity_id: sensor.pv_ev_efficiency_ratio
         unit_of_measurement: "%"
         icon: mdi:speedometer
         state: >
@@ -548,7 +548,7 @@ template:
 
       # Total Energy Tracking (if energy sensors available)
       - name: "Daily EV Energy from PV"
-        unique_id: pv_ev_daily_energy
+        default_entity_id: sensor.pv_ev_daily_energy
         unit_of_measurement: "kWh"
         icon: mdi:lightning-bolt
         state: >

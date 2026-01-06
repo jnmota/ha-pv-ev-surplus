@@ -169,10 +169,10 @@ input_number:
 
   ev_charger_min_charging_a:
     name: "EV Charger Min Charging Current"
-    min: 8
+    min: 6
     max: 16
     step: 1
-    initial: 8
+    initial: 6
     unit_of_measurement: "A"
     icon: mdi:current-ac
 
@@ -213,6 +213,15 @@ input_select:
       - "Max"
     initial: "Default"
     icon: mdi:percent
+
+  # Tesla Model Selector
+  tesla_model:
+    name: "Tesla Model"
+    options:
+      - "Model Y"
+      - "Model 3"
+    initial: "Model Y"
+    icon: mdi:car-electric
 
 # Counter for margin allowance tracking
 counter:
@@ -383,7 +392,11 @@ template:
         icon: mdi:current-ac
         state: >
           {% if is_state('input_boolean.tesla_charge_current_api', 'on') %}
-            {{ states('number.tesla_model_y_charge_current') | float(0) }}
+            {% if is_state('input_select.tesla_model', 'Model Y') %}
+              {{ states('number.tesla_model_y_charge_current') | float(0) }}
+            {% else %}
+              {{ states('number.tesla_model_3_charge_current') | float(0) }}
+            {% endif %}
           {% else %}
             {{ states('number.ev_charger_set_charge_current') | float(0) }}
           {% endif %}
@@ -909,7 +922,12 @@ automation:
             sequence:
               - service: number.set_value
                 target:
-                  entity_id: number.tesla_model_y_charge_current
+                  entity_id: >
+                    {% if is_state('input_select.tesla_model', 'Model Y') %}
+                      number.tesla_model_y_charge_current
+                    {% else %}
+                      number.tesla_model_3_charge_current
+                    {% endif %}
                 data:
                   value: "{{ states('input_number.tesla_min_charging_a') | int }}"
               - service: number.set_value
@@ -950,6 +968,40 @@ automation:
                   entity_id: number.ev_charger_set_charge_current
                 data:
                   value: 16
+
+  # Auto-detect Tesla Model based on charge cable connection
+  - id: pv_ev_auto_detect_tesla_model
+    alias: "PV-EV Auto Detect Tesla Model"
+    description: "Automatically set Tesla model based on which charge cable is connected"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.tesla_model_y_charge_cable
+        to: "on"
+        id: "model_y"
+      - platform: state
+        entity_id: binary_sensor.tesla_model_3_charge_cable
+        to: "on"
+        id: "model_3"
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: "model_y"
+            sequence:
+              - service: input_select.select_option
+                target:
+                  entity_id: input_select.tesla_model
+                data:
+                  option: "Model Y"
+          - conditions:
+              - condition: trigger
+                id: "model_3"
+            sequence:
+              - service: input_select.select_option
+                target:
+                  entity_id: input_select.tesla_model
+                data:
+                  option: "Model 3"
 
   # Handle battery SOC 100% -> set share percentage to max
   - id: pv_ev_battery_soc_100
@@ -1144,11 +1196,21 @@ script:
                     sequence:
                       - service: switch.turn_on
                         target:
-                          entity_id: switch.tesla_model_y_charge
+                          entity_id: >
+                            {% if is_state('input_select.tesla_model', 'Model Y') %}
+                              switch.tesla_model_y_charge
+                            {% else %}
+                              switch.tesla_model_3_charge
+                            {% endif %}
                 default:
                   - service: switch.turn_off
                     target:
-                      entity_id: switch.tesla_model_y_charge
+                      entity_id: >
+                        {% if is_state('input_select.tesla_model', 'Model Y') %}
+                          switch.tesla_model_y_charge
+                        {% else %}
+                          switch.tesla_model_3_charge
+                        {% endif %}
         # Use EV Charger Select
         default:
           - choose:
@@ -1193,7 +1255,12 @@ script:
             sequence:
               - service: number.set_value
                 target:
-                  entity_id: number.tesla_model_y_charge_current
+                  entity_id: >
+                    {% if is_state('input_select.tesla_model', 'Model Y') %}
+                      number.tesla_model_y_charge_current
+                    {% else %}
+                      number.tesla_model_3_charge_current
+                    {% endif %}
                 data:
                   value: "{{ current | int }}"
         # Use EV Charger API
@@ -1225,7 +1292,12 @@ script:
             sequence:
               - service: switch.turn_off
                 target:
-                  entity_id: switch.tesla_model_y_charge
+                  entity_id: >
+                    {% if is_state('input_select.tesla_model', 'Model Y') %}
+                      switch.tesla_model_y_charge
+                    {% else %}
+                      switch.tesla_model_3_charge
+                    {% endif %}
         default:
           - service: select.select_option
             target:

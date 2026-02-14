@@ -33,6 +33,7 @@ views:
           - input_select.ev_share_percentage
           - input_number.ev_share_percentage_default
           - input_number.ev_share_percentage_max
+          - input_number.battery_soc_max_share_threshold
           - input_number.margin_percentage
           - input_number.ev_reserved_margin_allowance
           - counter.ev_margin_allowance_counter
@@ -98,8 +99,8 @@ views:
           - automation.pv_ev_surplus_automation_off
           - automation.pv_ev_tesla_current_api_change
           - automation.pv_ev_automation_turn_on_setup
-          - automation.pv_ev_battery_soc_100
-          - automation.pv_ev_battery_soc_below_100
+          - automation.pv_ev_battery_soc_max_threshold
+          - automation.pv_ev_battery_soc_below_threshold
           - automation.pv_ev_emergency_stop
           - automation.pv_ev_sensor_validation
           - automation.pv_ev_sensor_monitor

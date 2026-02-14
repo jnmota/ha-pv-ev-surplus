@@ -55,6 +55,9 @@ homeassistant:
     input_number.min_house_battery_soc:
       friendly_name: "Min House Battery SOC"
       icon: mdi:battery-low
+    input_number.battery_soc_max_share_threshold:
+      friendly_name: "Battery SOC Max Share Threshold"
+      icon: mdi:battery-charging-100
     input_number.dashboard_values_update_interval:
       friendly_name: "Dashboard Update Interval"
       icon: mdi:timer
@@ -203,6 +206,15 @@ input_number:
     initial: 20
     unit_of_measurement: "%"
     icon: mdi:battery-low
+
+  battery_soc_max_share_threshold:
+    name: "Battery SOC Max Share Threshold"
+    min: 50
+    max: 100
+    step: 5
+    initial: 90
+    unit_of_measurement: "%"
+    icon: mdi:battery-charging-100
 
 # Dynamic Share Percentage Selector
 input_select:
@@ -1003,21 +1015,27 @@ automation:
                 data:
                   option: "Model 3"
 
-  # Handle battery SOC 100% -> set share percentage to max
-  - id: pv_ev_battery_soc_100
-    alias: "PV-EV Battery SOC 100"
-    description: "Set EV share percentage to max when battery reaches 100%"
+  # Handle battery SOC threshold -> set share percentage to max
+  - id: pv_ev_battery_soc_max_threshold
+    alias: "PV-EV Battery SOC Max Threshold"
+    description: "Set EV share percentage to max when battery reaches threshold"
     trigger:
-      - platform: numeric_state
+      - platform: state
         entity_id: sensor.gw_battery
-        above: 99.9
+      - platform: state
+        entity_id: input_number.battery_soc_max_share_threshold
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
         to: "on"
+      - platform: homeassistant
+        event: start
     condition:
-      - condition: numeric_state
-        entity_id: sensor.gw_battery
-        above: 99.9
+      - condition: template
+        value_template: >
+          {{ states('sensor.gw_battery') | float(0) >= states('input_number.battery_soc_max_share_threshold') | float(90) }}
+      - condition: template
+        value_template: >
+          {{ states('input_select.ev_share_percentage') != 'Max' }}
     action:
       - service: input_select.select_option
         target:
@@ -1025,26 +1043,27 @@ automation:
         data:
           option: "Max"
 
-  # Handle battery SOC below 100% -> set share percentage to default
-  - id: pv_ev_battery_soc_below_100
-    alias: "PV-EV Battery SOC Below 100"
-    description: "Set EV share percentage to default when battery falls below 100%"
+  # Handle battery SOC below threshold -> set share percentage to default
+  - id: pv_ev_battery_soc_below_threshold
+    alias: "PV-EV Battery SOC Below Threshold"
+    description: "Set EV share percentage to default when battery falls below threshold"
     trigger:
-      - platform: numeric_state
+      - platform: state
         entity_id: sensor.gw_battery
-        below: 99.9
+      - platform: state
+        entity_id: input_number.battery_soc_max_share_threshold
       - platform: state
         entity_id: input_boolean.pv_ev_surplus_automation
         to: "on"
+      - platform: homeassistant
+        event: start
     condition:
-      - condition: and
-        conditions:
-          - condition: state
-            entity_id: input_select.ev_share_percentage
-            state: "Max"
-          - condition: numeric_state
-            entity_id: sensor.gw_battery
-            below: 99.9
+      - condition: state
+        entity_id: input_select.ev_share_percentage
+        state: "Max"
+      - condition: template
+        value_template: >
+          {{ states('sensor.gw_battery') | float(0) < states('input_number.battery_soc_max_share_threshold') | float(90) }}
     action:
       - service: input_select.select_option
         target:

@@ -116,7 +116,7 @@ input_number:
   ev_share_percentage_default:
     name: "EV Share Percentage Default"
     min: 0
-    max: 100
+    max: 95
     step: 5
     initial: 50
     unit_of_measurement: "%"
@@ -125,9 +125,9 @@ input_number:
   ev_share_percentage_max:
     name: "EV Share Percentage Max"
     min: 0
-    max: 100
+    max: 95
     step: 5
-    initial: 80
+    initial: 90
     unit_of_measurement: "%"
     icon: mdi:percent
 
@@ -135,7 +135,7 @@ input_number:
   margin_percentage:
     name: "Margin Percentage"
     min: 0
-    max: 75
+    max: 95
     step: 5
     initial: 75
     unit_of_measurement: "%"

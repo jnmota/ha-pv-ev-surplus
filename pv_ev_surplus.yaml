@@ -184,7 +184,7 @@ input_number:
     min: 8
     max: 16
     step: 1
-    initial: 11
+    initial: 8
     unit_of_measurement: "A"
     icon: mdi:current-ac
 
@@ -193,7 +193,7 @@ input_number:
     min: 3
     max: 15
     step: 3
-    initial: 12
+    initial: 9
     unit_of_measurement: "A"
     icon: mdi:current-ac
 

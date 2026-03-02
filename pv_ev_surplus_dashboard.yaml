@@ -18,6 +18,7 @@ views:
           - select.ev_charger_charging
           - select.ev_charger_mode
           - sensor.pv_ev_connection_status
+          - sensor.pv_ev_charge_complete
           - sensor.ev_charger_status
           - sensor.ev_charger_power
       - type: entities

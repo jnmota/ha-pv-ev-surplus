@@ -432,6 +432,17 @@ template:
         state: >
           {{ is_state('sensor.ev_charger_status', 'charging') }}
 
+      # EV Charge Complete (selected Tesla model reports "complete")
+      - name: "EV Charge Complete"
+        default_entity_id: sensor.pv_ev_charge_complete
+        icon: mdi:battery-check
+        state: >
+          {% if is_state('input_select.tesla_model', 'Model Y') %}
+            {{ is_state('sensor.tesla_model_y_charging', 'complete') }}
+          {% else %}
+            {{ is_state('sensor.tesla_model_3_charging', 'complete') }}
+          {% endif %}
+
       # Safety Check Status
       - name: "Safety Check Status"
         default_entity_id: sensor.pv_ev_safety_check
@@ -487,9 +498,12 @@ template:
           {% set soc_block = is_state('input_boolean.min_house_battery_soc_block', 'on') %}
           {% set grid_power = states('sensor.gw_from_grid') | float(0) %}
           {% set grid_block = is_state('input_boolean.grid_import_block', 'on') %}
+          {% set ev_charge_complete = states('sensor.pv_ev_charge_complete') == 'True' %}
 
           {% if not automation_on %}
             Automation OFF
+          {% elif ev_charge_complete %}
+            EV fully charged
           {% elif ev_status not in ['plugged_in', 'charged', 'charging'] %}
             EV not connected ({{ ev_status }})
           {% elif target_current < min_current %}
@@ -614,8 +628,16 @@ automation:
             Time: {{ now().strftime('%H:%M:%S') }}
             Target Current: {{ states('sensor.pv_ev_target_current') }}A
             Min Current: {{ states('sensor.pv_ev_min_charging_current') }}A
+            Current Phase: {{ states('sensor.pv_ev_current_phase') }}
+            Target Phase: {{ states('sensor.pv_ev_target_phase') }}
             EV Status: {{ states('sensor.ev_charger_status') }}
+            Charging State: {{ states('sensor.pv_ev_current_charging_state') }}
+            Charge Complete: {{ states('sensor.pv_ev_charge_complete') }}
             Battery SOC: {{ states('sensor.gw_battery') }}%
+            PV Power: {{ states('sensor.gw_pv') }}W
+            Available Power for EV: {{ states('sensor.pv_ev_available_power') }}W
+            Grid Import: {{ states('sensor.gw_from_grid') }}W
+            Safety Check: {{ states('sensor.pv_ev_safety_check') }}
           notification_id: pv_ev_debug
 
       # For interval triggers, check if it's time to update based on the configured interval
@@ -652,9 +674,10 @@ automation:
           available_power_for_ev: "{{ states('sensor.pv_ev_available_power') | float(0) }}"
           soc_block: "{{ is_state('input_boolean.min_house_battery_soc_block', 'on') }}"
           grid_block: "{{ is_state('input_boolean.grid_import_block', 'on') }}"
+          ev_charge_complete: "{{ states('sensor.pv_ev_charge_complete') == 'True' }}"
           phase_needs_update: "{{ target_phase != current_phase and target_phase in ['Monophasic', 'Triphasic'] }}"
           current_needs_update: "{{ target_current != current_current }}"
-          needs_to_start_charging: "{{ not charging_state and target_current >= min_charging_current }}"
+          needs_to_start_charging: "{{ not charging_state and target_current >= min_charging_current and not ev_charge_complete }}"
 
       # Step 1: Safety checks - stop charging if any safety condition fails (only if currently charging)
       - choose:
@@ -666,6 +689,9 @@ automation:
                   # EV not connected
                   - condition: template
                     value_template: "{{ ev_status not in ['plugged_in', 'charged', 'charging'] }}"
+                  # EV fully charged
+                  - condition: template
+                    value_template: "{{ ev_charge_complete }}"
                   # Battery SOC too low
                   - condition: template
                     value_template: "{{ soc_block and battery_soc < min_soc }}"
@@ -688,6 +714,7 @@ automation:
                     Battery SOC: {{ battery_soc }}% (min: {{ min_soc }}%)
                     Grid Power: {{ grid_power }}W
                     Available Power for EV: {{ available_power_for_ev }}W
+                    EV Charge Complete: {{ ev_charge_complete }}
                   notification_id: pv_ev_safety_stop
               - stop: "Safety conditions not met"
           # If safety check fails but not charging, just stop automation (no API call needed)
@@ -699,6 +726,9 @@ automation:
                   # EV not connected
                   - condition: template
                     value_template: "{{ ev_status not in ['plugged_in', 'charged', 'charging'] }}"
+                  # EV fully charged
+                  - condition: template
+                    value_template: "{{ ev_charge_complete }}"
                   # Battery SOC too low
                   - condition: template
                     value_template: "{{ soc_block and battery_soc < min_soc }}"
@@ -1098,6 +1128,10 @@ automation:
       - condition: state
         entity_id: input_boolean.pv_ev_surplus_automation
         state: "on"
+      # Only emergency stop if currently charging
+      - condition: state
+        entity_id: sensor.pv_ev_current_charging_state
+        state: "True"
     action:
       - service: script.emergency_stop_charging
       - service: persistent_notification.create

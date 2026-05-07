@@ -1173,14 +1173,11 @@ automation:
             {{ missing | join(', ') }}
       - condition: template
         value_template: "{{ missing_sensors | length > 0 }}"
-      - service: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.pv_ev_surplus_automation
       - service: persistent_notification.create
         data:
-          title: "PV-EV Automation Error"
+          title: "PV-EV Sensor Warning"
           message: >
-            Cannot start automation. Missing or unavailable sensors:
+            Some sensors are unavailable. Charging paused until recovery:
             {{ missing_sensors }}
           notification_id: pv_ev_sensor_error
 
@@ -1208,15 +1205,13 @@ automation:
         state: "on"
     action:
       - service: script.emergency_stop_charging
-      - service: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.pv_ev_surplus_automation
       - service: persistent_notification.create
         data:
-          title: "PV-EV Automation Stopped"
+          title: "PV-EV Sensor Failure"
           message: >
-            Automation stopped due to sensor failure:
+            Emergency stop triggered due to sensor failure:
             {{ trigger.entity_id }} became {{ trigger.to_state.state }}
+            Automation remains enabled and will resume when sensor recovers.
           notification_id: pv_ev_sensor_failure
 
 # Scripts

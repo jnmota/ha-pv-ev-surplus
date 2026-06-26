@@ -13,7 +13,9 @@ views:
         entities:
           - input_select.tesla_model
           - number.tesla_model_y_charge_current
+          - number.tesla_model_3_charge_current
           - switch.tesla_model_y_charge
+          - switch.tesla_model_3_charge
           - number.ev_charger_set_charge_current
           - select.ev_charger_charging
           - select.ev_charger_mode
@@ -26,8 +28,18 @@ views:
         entities:
           - input_boolean.tesla_charge_current_api
           - input_boolean.tesla_charge_on_off_api
+          - input_boolean.ev_charger_only_mode
+          - input_boolean.disable_monophasic
           - input_boolean.min_house_battery_soc_block
           - input_boolean.grid_import_block
+      - type: entities
+        title: 🧮 Effective API & Active Targets (Calculated)
+        entities:
+          - binary_sensor.pv_ev_tesla_current_api_active
+          - binary_sensor.pv_ev_tesla_on_off_api_active
+          - sensor.pv_ev_active_tesla_charge_switch
+          - sensor.pv_ev_active_tesla_charge_current_number
+          - sensor.pv_ev_active_tesla_charging_sensor
       - type: entities
         title: 🔢 Share Input Numbers (Configuration)
         entities:
@@ -59,6 +71,7 @@ views:
           - sensor.pv_ev_target_current
           - sensor.pv_ev_current_phase
           - sensor.pv_ev_current_charging_current
+          - sensor.pv_ev_current_charging_state
       - type: entities
         title: 🧮 Template Sensors (Calculated)
         entities:
@@ -76,6 +89,7 @@ views:
           - sensor.pv_ev_efficiency_ratio
           - sensor.pv_ev_daily_energy
           - sensor.pv_ev_debug_why_not_charging
+          - sensor.pv_ev_debug_case2_condition
       - type: entities
         title: 🏠 External Sensors (System)
         entities:
@@ -86,13 +100,20 @@ views:
           - sensor.gw_to_grid
           - sensor.gw_battery_charge
           - sensor.gw_battery_discharge
+          - sensor.ev_charger_energy_daily
+      - type: entities
+        title: 🚗 Vehicle Sensors (Tesla / Cable)
+        entities:
+          - sensor.tesla_model_y_charging
+          - sensor.tesla_model_3_charging
+          - binary_sensor.tesla_model_y_charge_cable
+          - binary_sensor.tesla_model_3_charge_cable
       - type: entities
         title: ⚙️ Scripts
         entities:
           - script.control_charging
           - script.update_charging_current
           - script.emergency_stop_charging
-          - script.update_phase_mode
       - type: entities
         title: 🤖 Automations
         entities:
@@ -100,8 +121,8 @@ views:
           - automation.pv_ev_surplus_automation_off
           - automation.pv_ev_tesla_current_api_change
           - automation.pv_ev_automation_turn_on_setup
-          - automation.pv_ev_battery_soc_max_threshold
-          - automation.pv_ev_battery_soc_below_threshold
+          - automation.pv_ev_auto_detect_tesla_model
+          - automation.pv_ev_battery_soc_share_threshold
           - automation.pv_ev_emergency_stop
           - automation.pv_ev_sensor_validation
           - automation.pv_ev_sensor_monitor
@@ -148,7 +169,7 @@ views:
               action: call-service
               service: script.control_charging
               service_data:
-                action: 'on'
+                action: "on"
           - type: button
             entity: script.control_charging
             name: 🔌 CHARGE OFF
@@ -156,7 +177,7 @@ views:
               action: call-service
               service: script.control_charging
               service_data:
-                action: 'off'
+                action: "off"
           - type: button
             entity: script.emergency_stop_charging
             name: 🛑 EMERGENCY STOP

@@ -284,6 +284,20 @@ template:
           {{ is_state('input_boolean.tesla_charge_on_off_api', 'on')
              and not is_state('input_boolean.ev_charger_only_mode', 'on') }}
 
+      # Whether the SELECTED Tesla model matches the physically connected car.
+      # Forced true in EV Charger Only mode (no Tesla expected to be plugged in),
+      # so the model sync and safety automations stay inert in that mode.
+      - name: "PV-EV Tesla Model Confirmed"
+        default_entity_id: binary_sensor.pv_ev_tesla_model_confirmed
+        icon: mdi:car-check
+        state: >
+          {% if is_state('input_boolean.ev_charger_only_mode', 'on') %}
+            true
+          {% else %}
+            {% set d = states('sensor.pv_ev_detected_tesla_model') %}
+            {{ d in ['Model Y', 'Model 3'] and is_state('input_select.tesla_model', d) }}
+          {% endif %}
+
   - sensor:
       # Active Tesla entity resolvers (selected via input_select.tesla_model).
       # Single source of truth so the Model Y / Model 3 picker isn't duplicated
@@ -316,6 +330,27 @@ template:
             sensor.tesla_model_y_charging
           {% else %}
             sensor.tesla_model_3_charging
+          {% endif %}
+
+      # Which Tesla is physically on the home wallbox: charge cable connected
+      # AND the car is at home. A car Supercharging elsewhere has its cable on
+      # but is not home, so it is correctly excluded. Definite when exactly one
+      # car is cabled+home; otherwise Unknown. (Both cabled+home never happens
+      # per the setup, so a home charge always resolves to a definite model.)
+      - name: "PV-EV Detected Tesla Model"
+        default_entity_id: sensor.pv_ev_detected_tesla_model
+        icon: mdi:car-electric
+        state: >
+          {% set y = is_state('binary_sensor.tesla_model_y_charge_cable', 'on')
+                     and is_state('device_tracker.tesla_model_y_location', 'home') %}
+          {% set m3 = is_state('binary_sensor.tesla_model_3_charge_cable', 'on')
+                      and is_state('device_tracker.tesla_model_3_location', 'home') %}
+          {% if y and not m3 %}
+            Model Y
+          {% elif m3 and not y %}
+            Model 3
+          {% else %}
+            Unknown
           {% endif %}
 
       # Real House Load (excluding EV charger)
@@ -1074,39 +1109,76 @@ automation:
                 data:
                   value: 16
 
-  # Auto-detect Tesla Model based on charge cable connection
-  - id: pv_ev_auto_detect_tesla_model
-    alias: "PV-EV Auto Detect Tesla Model"
-    description: "Automatically set Tesla model based on which charge cable is connected"
+  # Keep input_select.tesla_model in sync with the physically connected car.
+  # State-derived (not a single rising edge) and re-evaluated on every relevant
+  # signal, so a missed plug-in edge (e.g. HA restart with a cable already
+  # connected) is corrected at the next wake-up instead of never.
+  - id: pv_ev_sync_tesla_model
+    alias: "PV-EV Sync Tesla Model"
+    description: "Auto-correct the selected Tesla model to the connected car"
+    mode: single
     trigger:
       - platform: state
-        entity_id: binary_sensor.tesla_model_y_charge_cable
-        to: "on"
-        id: "model_y"
+        entity_id: sensor.pv_ev_detected_tesla_model
       - platform: state
-        entity_id: binary_sensor.tesla_model_3_charge_cable
+        entity_id: sensor.ev_charger_status
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: input_boolean.pv_ev_surplus_automation
         to: "on"
-        id: "model_3"
+    condition:
+      # Only act when detection is definite and differs from the current pick
+      - condition: template
+        value_template: >
+          {% set d = states('sensor.pv_ev_detected_tesla_model') %}
+          {{ d in ['Model Y', 'Model 3'] and not is_state('input_select.tesla_model', d) }}
     action:
-      - choose:
-          - conditions:
-              - condition: trigger
-                id: "model_y"
-            sequence:
-              - service: input_select.select_option
-                target:
-                  entity_id: input_select.tesla_model
-                data:
-                  option: "Model Y"
-          - conditions:
-              - condition: trigger
-                id: "model_3"
-            sequence:
-              - service: input_select.select_option
-                target:
-                  entity_id: input_select.tesla_model
-                data:
-                  option: "Model 3"
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.tesla_model
+        data:
+          option: "{{ states('sensor.pv_ev_detected_tesla_model') }}"
+
+  # Safety: if the selected model can't be confirmed as the connected car while
+  # charging (ambiguous detection, or the sync could not correct it), stop
+  # charging so we never keep feeding current to the wrong / uncertain car.
+  # The 30s debounce lets the sync auto-correct definite cases first; only a
+  # sustained unconfirmed state (Unknown/ambiguous) trips it. Inert in EV
+  # Charger Only mode (Model Confirmed is forced true there).
+  - id: pv_ev_tesla_model_safety
+    alias: "PV-EV Tesla Model Safety"
+    description: "Stop charging if the connected Tesla model can't be confirmed"
+    mode: single
+    trigger:
+      - platform: template
+        value_template: >
+          {{ is_state('sensor.ev_charger_status', 'charging')
+             and is_state('binary_sensor.pv_ev_tesla_model_confirmed', 'off') }}
+        for: "00:00:30"
+    condition:
+      - condition: state
+        entity_id: input_boolean.pv_ev_surplus_automation
+        state: "on"
+    action:
+      - service: script.control_charging
+        data:
+          action: "off"
+      - service: counter.reset
+        target:
+          entity_id: counter.ev_margin_allowance_counter
+      - service: persistent_notification.create
+        data:
+          title: "PV-EV: Tesla Model Unconfirmed"
+          message: >
+            Stopped charging - could not confirm which Tesla is connected.
+            Selected: {{ states('input_select.tesla_model') }};
+            detected: {{ states('sensor.pv_ev_detected_tesla_model') }}
+            (Y cable: {{ states('binary_sensor.tesla_model_y_charge_cable') }},
+            3 cable: {{ states('binary_sensor.tesla_model_3_charge_cable') }}).
+            If a non-Tesla is plugged in, enable EV Charger Only mode; otherwise
+            check the cars / plug and reselect the model.
+          notification_id: pv_ev_model_unconfirmed
 
   # Handle battery SOC threshold -> switch EV share between Max (at/above
   # threshold) and Default (below). Merges the former max/below automations.
@@ -1158,6 +1230,55 @@ automation:
                   entity_id: input_select.ev_share_percentage
                 data:
                   option: "Default"
+
+  # Safety net: stop charging whenever it happens without PV surplus, at ANY
+  # time of day. The main update logic is gated to daytime + connected, so by
+  # itself it cannot stop charging that begins at night (e.g. the car
+  # auto-charges the moment it is plugged in). This runs 24/7 to catch that.
+  - id: pv_ev_stop_when_no_surplus
+    alias: "PV-EV Stop When No Surplus"
+    description: "Stop charging if it occurs without PV surplus (e.g. plugged in after sunset)"
+    mode: single
+    trigger:
+      # Backstop re-check, plus immediate catches on charge-start and sunset
+      - platform: time_pattern
+        minutes: "/2"
+      - platform: state
+        entity_id: sensor.ev_charger_status
+        to: "charging"
+      - platform: state
+        entity_id: sun.sun
+        to: "below_horizon"
+    condition:
+      - condition: state
+        entity_id: input_boolean.pv_ev_surplus_automation
+        state: "on"
+      - condition: state
+        entity_id: sensor.ev_charger_status
+        state: "charging"
+      # No surplus: target below the charge minimum, or it's night (never surplus)
+      - condition: template
+        value_template: >
+          {{ (states('sensor.pv_ev_target_current') | int(0)
+              < states('sensor.pv_ev_min_charging_current') | int(1))
+             or is_state('sun.sun', 'below_horizon') }}
+    action:
+      - service: script.control_charging
+        data:
+          action: "off"
+      - service: counter.reset
+        target:
+          entity_id: counter.ev_margin_allowance_counter
+      - service: persistent_notification.create
+        data:
+          title: "PV-EV: Charging Stopped (no surplus)"
+          message: >
+            Stopped charging - no PV surplus.
+            Target {{ states('sensor.pv_ev_target_current') }}A <
+            min {{ states('sensor.pv_ev_min_charging_current') }}A;
+            sun is {{ states('sun.sun') }}.
+            (Likely started without surplus, e.g. plugged in after sunset.)
+          notification_id: pv_ev_no_surplus_stop
 
   # Emergency stop on critical conditions
   - id: pv_ev_emergency_stop

@@ -35,6 +35,8 @@ views:
       - type: entities
         title: 🧮 Effective API & Active Targets (Calculated)
         entities:
+          - sensor.pv_ev_detected_tesla_model
+          - binary_sensor.pv_ev_tesla_model_confirmed
           - binary_sensor.pv_ev_tesla_current_api_active
           - binary_sensor.pv_ev_tesla_on_off_api_active
           - sensor.pv_ev_active_tesla_charge_switch
@@ -102,12 +104,14 @@ views:
           - sensor.gw_battery_discharge
           - sensor.ev_charger_energy_daily
       - type: entities
-        title: 🚗 Vehicle Sensors (Tesla / Cable)
+        title: 🚗 Vehicle Sensors (Tesla / Cable / Location)
         entities:
           - sensor.tesla_model_y_charging
           - sensor.tesla_model_3_charging
           - binary_sensor.tesla_model_y_charge_cable
           - binary_sensor.tesla_model_3_charge_cable
+          - device_tracker.tesla_model_y_location
+          - device_tracker.tesla_model_3_location
       - type: entities
         title: ⚙️ Scripts
         entities:
@@ -121,8 +125,10 @@ views:
           - automation.pv_ev_surplus_automation_off
           - automation.pv_ev_tesla_current_api_change
           - automation.pv_ev_automation_turn_on_setup
-          - automation.pv_ev_auto_detect_tesla_model
+          - automation.pv_ev_sync_tesla_model
+          - automation.pv_ev_tesla_model_safety
           - automation.pv_ev_battery_soc_share_threshold
+          - automation.pv_ev_stop_when_no_surplus
           - automation.pv_ev_emergency_stop
           - automation.pv_ev_sensor_validation
           - automation.pv_ev_sensor_monitor

@@ -125,6 +125,8 @@ views:
           - automation.pv_ev_surplus_automation_off
           - automation.pv_ev_tesla_current_api_change
           - automation.pv_ev_automation_turn_on_setup
+          - automation.pv_ev_refresh_tesla_data
+          - automation.pv_ev_wake_to_identify
           - automation.pv_ev_sync_tesla_model
           - automation.pv_ev_tesla_model_safety
           - automation.pv_ev_battery_soc_share_threshold

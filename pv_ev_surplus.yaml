@@ -96,9 +96,10 @@ input_boolean:
 
   # Disable Monophasic - when on, only Triphasic charging is used (never single
   # phase). Charging pauses below min_charging x3 total (per-phase < minimum).
+  # Default ON (triphasic-only is the normal mode).
   disable_monophasic:
     name: "Disable Monophasic"
-    initial: false
+    initial: true
     icon: mdi:numeric-3-box-multiple
 
   # Safety blocks
@@ -1108,6 +1109,101 @@ automation:
                   entity_id: number.ev_charger_set_charge_current
                 data:
                   value: 16
+
+  # Refresh Tesla data so cable/location/charging are fresh for the model
+  # detection/sync below (also keeps other dashboards current). Runs on connect
+  # and on HA restart. The delay + mode: restart collapse the plugged_in ->
+  # charging pair into a single (metered) API poll.
+  - id: pv_ev_refresh_tesla_data
+    alias: "PV-EV Refresh Tesla Data"
+    description: "Force-refresh Tesla entities on connect and on HA restart (feeds model detection)"
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: sensor.ev_charger_status
+        to:
+          - charging
+          - plugged_in
+        id: plugged_in
+      - platform: homeassistant
+        event: start
+        id: ha_start
+    action:
+      # On HA restart the cars may be asleep, and Tesla Fleet won't refresh a
+      # sleeping car via update_entity - so wake both first. On a plug-in the car
+      # is already awake from being plugged in, so skip the wake (no wasted call).
+      - if:
+          - condition: trigger
+            id: ha_start
+        then:
+          # Wait until the system is up (wallbox sensor available) before waking
+          - wait_template: "{{ states('sensor.ev_charger_status') not in ['unknown', 'unavailable'] }}"
+            timeout: "00:02:00"
+            continue_on_timeout: true
+          - service: button.press
+            target:
+              entity_id:
+                - button.tesla_model_y_wake
+                - button.tesla_model_3_wake
+          - delay: "00:00:15"
+        else:
+          # plug-in: car already awake, let the plug-in propagate to the cloud
+          - delay: "00:00:05"
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - switch.tesla_model_y_charge
+            - number.tesla_model_y_charge_current
+            - binary_sensor.tesla_model_y_charge_cable
+            - switch.tesla_model_3_charge
+            - number.tesla_model_3_charge_current
+            - binary_sensor.tesla_model_3_charge_cable
+            - lock.tesla_model_3_charge_cable_lock
+            - lock.tesla_model_y_charge_cable_lock
+            - cover.tesla_model_3_charge_port_door
+            - cover.tesla_model_y_charge_port_door
+            - sensor.tesla_model_3_battery_level
+            - sensor.tesla_model_y_battery_level
+            - sensor.tesla_model_3_charging
+            - sensor.tesla_model_y_charging
+            - device_tracker.tesla_model_3_location
+            - device_tracker.tesla_model_y_location
+
+  # Fallback (Tesla Fleet): a car is on the wallbox but we cannot tell which one
+  # (detection stuck at Unknown = the car is likely asleep, so its cable/location
+  # are stale and update_entity alone can't refresh them). Wake both candidates
+  # once, then re-poll so detection resolves. Bounded: only while the automation
+  # is on, not in EV Charger Only mode, and after a 90s settle so a normal
+  # plug-in resolves on its own first. Fires once per stuck period (no wake loop).
+  - id: pv_ev_wake_to_identify
+    alias: "PV-EV Wake To Identify Model"
+    description: "Wake both Teslas to resolve an unidentifiable connected car"
+    mode: single
+    trigger:
+      - platform: template
+        value_template: >
+          {{ is_state('input_boolean.pv_ev_surplus_automation', 'on')
+             and is_state('input_boolean.ev_charger_only_mode', 'off')
+             and states('sensor.ev_charger_status') in ['charging', 'plugged_in']
+             and is_state('sensor.pv_ev_detected_tesla_model', 'Unknown') }}
+        for: "00:01:30"
+    action:
+      - service: button.press
+        target:
+          entity_id:
+            - button.tesla_model_y_wake
+            - button.tesla_model_3_wake
+      # Tesla Fleet needs the car awake before it returns fresh data
+      - delay: "00:00:15"
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - binary_sensor.tesla_model_y_charge_cable
+            - binary_sensor.tesla_model_3_charge_cable
+            - device_tracker.tesla_model_y_location
+            - device_tracker.tesla_model_3_location
+            - sensor.tesla_model_y_charging
+            - sensor.tesla_model_3_charging
 
   # Keep input_select.tesla_model in sync with the physically connected car.
   # State-derived (not a single rising edge) and re-evaluated on every relevant

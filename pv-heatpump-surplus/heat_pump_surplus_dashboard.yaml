@@ -1,0 +1,70 @@
+views:
+  - title: Heat Pump Surplus
+    sections:
+      - path: heat_pump_surplus
+        icon: mdi:heat-pump
+        cards:
+          - type: entities
+            title: Control
+            show_header_toggle: false
+            entities:
+              - entity: input_boolean.heat_pump_surplus_manual_override
+                name: Override (Disable Automation)
+              - entity: switch.heat_pump_surplus
+                name: Surplus Switch (55C / 70C)
+              - type: divider
+              - entity: input_number.hp_surplus_on_threshold
+                name: Surplus ON Threshold (W)
+              - entity: input_number.hp_surplus_off_threshold
+                name: Surplus OFF Threshold (W)
+              - entity: input_number.hp_min_battery_soc
+                name: Min Battery SOC (%)
+              - type: divider
+              - entity: automation.heat_pump_enable_surplus_mode
+                name: "Automation: Enable Surplus Mode"
+              - entity: automation.heat_pump_disable_surplus_mode
+                name: "Automation: Disable Surplus Mode"
+          - type: entities
+            title: Live Status
+            show_header_toggle: false
+            entities:
+              - entity: sensor.hp_pv_surplus
+                name: PV Surplus (HP)
+              - entity: sensor.heat_pump_current_consumption
+                name: HP Power
+              - entity: sensor.gw_battery
+                name: Battery SOC
+              - entity: sensor.gw_to_grid
+                name: Export to Grid
+              - type: divider
+              - entity: binary_sensor.hp_pv_surplus_available
+                name: Surplus Available
+              - entity: binary_sensor.hp_heating
+                name: Heating
+              - entity: sun.sun
+                name: Sun
+          - type: history-graph
+            title: Power History (last 24 hours)
+            hours_to_show: 24
+            refresh_interval: 30
+            entities:
+              - entity: sensor.heat_pump_current_consumption
+                name: HP Power
+              - entity: sensor.hp_pv_surplus
+                name: PV Surplus (HP)
+              - entity: sensor.gw_to_grid
+                name: Export to Grid
+          - type: history-graph
+            title: Logical State (last 24 hours)
+            hours_to_show: 24
+            refresh_interval: 30
+            entities:
+              - entity: binary_sensor.hp_pv_surplus_available
+                name: Surplus Available
+              - entity: binary_sensor.hp_heating
+                name: Heating
+              - entity: switch.heat_pump_surplus
+                name: Surplus Switch
+    type: sections
+    max_columns: 4
+    cards: []

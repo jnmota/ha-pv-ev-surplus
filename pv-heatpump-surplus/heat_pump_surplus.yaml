@@ -1,0 +1,166 @@
+# Heat Pump PV Surplus package
+#
+# Raises the DHW setpoint from 55C (standard) to 70C when there is solar
+# surplus, storing excess PV as hot water. switch.heat_pump_surplus ON = 70C.
+#
+# Priority (b): the heat pump may claim surplus that would otherwise charge the
+# house battery, but only while battery SOC is above a configurable floor.
+# EV-agnostic: the EV (and every other load) simply shows up inside gw_load.
+
+input_number:
+  hp_surplus_on_threshold:
+    name: "Heat Pump Surplus ON Threshold"
+    min: 0
+    max: 5000
+    step: 100
+    initial: 600
+    unit_of_measurement: "W"
+    icon: mdi:transmission-tower-export
+
+  hp_surplus_off_threshold:
+    name: "Heat Pump Surplus OFF Threshold"
+    min: 0
+    max: 5000
+    step: 100
+    initial: 0
+    unit_of_measurement: "W"
+    icon: mdi:transmission-tower-export
+
+  # Boost only while the house battery is at/above this SOC (priority b guard).
+  hp_min_battery_soc:
+    name: "Heat Pump Min Battery SOC"
+    min: 0
+    max: 100
+    step: 5
+    initial: 50
+    unit_of_measurement: "%"
+    icon: mdi:battery-low
+
+input_boolean:
+  heat_pump_surplus_manual_override:
+    name: "Heat Pump Surplus Manual Override"
+    icon: mdi:hand-back-right
+
+template:
+  - sensor:
+      # Surplus available to the heat pump = PV minus the rest of the house.
+      # Adding the HP's own draw back makes the value invariant to the boost
+      # turning on/off (no self-oscillation), and it sits *before* the battery
+      # so the HP can claim surplus that would otherwise charge it (priority b).
+      # NOTE: assumes gw_load is the whole-house load and includes the heat pump.
+      - name: "HP PV Surplus"
+        unique_id: hp_pv_surplus
+        unit_of_measurement: "W"
+        device_class: power
+        icon: mdi:solar-power-variant
+        availability: >
+          {{ states('sensor.gw_pv') not in ['unavailable', 'unknown']
+             and states('sensor.gw_load') not in ['unavailable', 'unknown']
+             and states('sensor.heat_pump_current_consumption') not in ['unavailable', 'unknown'] }}
+        state: >
+          {% set pv = states('sensor.gw_pv') | float(0) %}
+          {% set load = states('sensor.gw_load') | float(0) %}
+          {% set hp = states('sensor.heat_pump_current_consumption') | float(0) %}
+          {{ (pv - load + hp) | round(0) | int }}
+
+  - binary_sensor:
+      # Hysteresis on the stable surplus: turn on above ON threshold,
+      # stay on until it drops below the OFF threshold.
+      - name: "HP PV Surplus Available"
+        unique_id: hp_pv_surplus_available
+        icon: mdi:solar-power-variant
+        state: >
+          {% set surplus = states('sensor.hp_pv_surplus') | float(0) %}
+          {% set on_threshold = states('input_number.hp_surplus_on_threshold') | float(600) %}
+          {% set off_threshold = states('input_number.hp_surplus_off_threshold') | float(0) %}
+          {% if is_state('binary_sensor.hp_pv_surplus_available', 'on') %}
+            {{ surplus > off_threshold }}
+          {% else %}
+            {{ surplus > on_threshold }}
+          {% endif %}
+
+      # Kept for visibility/debug (no longer drives the logic).
+      - name: "HP Heating"
+        unique_id: hp_heating
+        icon: mdi:heat-wave
+        state: >
+          {{ states('sensor.heat_pump_current_consumption') | float(0) > 300 }}
+
+automation:
+  # Enable the 70C boost when there is stable surplus, the battery is healthy,
+  # and the sun is up. Maintains 70C (reheats as the tank cools) for as long as
+  # those hold - it is the disable automation that reverts to 55C.
+  - alias: "Heat Pump - Enable Surplus Mode"
+    id: heat_pump_enable_surplus_mode
+    mode: single
+    trigger:
+      # Primary: surplus stable for 5 minutes
+      - platform: state
+        entity_id: binary_sensor.hp_pv_surplus_available
+        to: "on"
+        for: "00:05:00"
+      # Re-entry paths when a blocking condition clears while surplus is present
+      - platform: state
+        entity_id: sun.sun
+        to: "above_horizon"
+      - platform: state
+        entity_id: input_boolean.heat_pump_surplus_manual_override
+        to: "off"
+      - platform: template
+        value_template: >
+          {{ states('sensor.gw_battery') | float(0) >= states('input_number.hp_min_battery_soc') | float(50) }}
+    condition:
+      - condition: state
+        entity_id: input_boolean.heat_pump_surplus_manual_override
+        state: "off"
+      # Only act if currently in 55C mode
+      - condition: state
+        entity_id: switch.heat_pump_surplus
+        state: "off"
+      - condition: state
+        entity_id: binary_sensor.hp_pv_surplus_available
+        state: "on"
+      # Daytime only
+      - condition: state
+        entity_id: sun.sun
+        state: "above_horizon"
+      # House battery at/above the floor
+      - condition: template
+        value_template: >
+          {{ states('sensor.gw_battery') | float(0) >= states('input_number.hp_min_battery_soc') | float(50) }}
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.heat_pump_surplus
+
+  # Revert to 55C when surplus is gone, the battery drops below the floor,
+  # the sun sets, or the manual override is engaged.
+  - alias: "Heat Pump - Disable Surplus Mode"
+    id: heat_pump_disable_surplus_mode
+    mode: single
+    trigger:
+      # 1) Surplus gone (temporal hysteresis)
+      - platform: state
+        entity_id: binary_sensor.hp_pv_surplus_available
+        to: "off"
+        for: "00:03:00"
+      # 2) Battery dropped below the floor
+      - platform: template
+        value_template: >
+          {{ states('sensor.gw_battery') | float(100) < states('input_number.hp_min_battery_soc') | float(50) }}
+      # 3) Sun set
+      - platform: state
+        entity_id: sun.sun
+        to: "below_horizon"
+      # 4) Manual override engaged
+      - platform: state
+        entity_id: input_boolean.heat_pump_surplus_manual_override
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: switch.heat_pump_surplus
+        state: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.heat_pump_surplus
